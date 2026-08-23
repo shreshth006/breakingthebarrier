@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Breaking the Barrier</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main>
+      <div class="product-mark" aria-hidden="true">
+        <span></span><i></i><span></span>
+      </div>
+      <div>
+        <p class="eyebrow">Breaking the Barrier</p>
+        <h1>Local processor check</h1>
+      </div>
+      <p class="description">
+        Phase 0 verifies the packaged Japanese worker. This build does not read
+        or change the current page.
+      </p>
+      <button id="check-processor" type="button">Check local processor</button>
+      <p
+        id="status"
+        class="status"
+        data-state="idle"
+        role="status"
+        aria-live="polite"
+      >
+        Ready to check
+      </p>
+    </main>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-24
-- **Implementation status:** Not started
+- **Implementation status:** Phase 0 in progress
 
 ## 1. Product overview
 

@@ -3,7 +3,7 @@
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-24
 - **Target:** Chromium desktop, Manifest V3
-- **Implementation status:** Not started
+- **Implementation status:** Phase 0 in progress
 
 ## 1. Repository audit
 
@@ -414,7 +414,7 @@ The selected Phase 0 candidate is:
 - the matching IPADIC release files, packaged inside the extension;
 - WanaKana 5.x for Kana-to-romaji primitives behind the product's own tested romanization policy.
 
-As of this document, Lindera 5.1.0 was released on 2026-08-10 and its packaged IPADIC archive is approximately 15.1 MiB. The repository is MIT-licensed; the dictionary's notices and redistribution terms must be preserved under `third_party/licenses/`. WanaKana 5.3.1 is MIT-licensed.
+The Phase 0 foundation currently pins `lindera-wasm-bundler` 5.3.0 and WanaKana 5.3.1. The unpacked build packages and initializes the Lindera WASM inside a module worker, but no dictionary is packaged yet; tokenization, IPADIC size/provenance, and corpus accuracy remain open gates. Both installed libraries are MIT-licensed, and their notices ship under `third_party/licenses/`.
 
 These become approved production dependencies only after the Phase 0 gate proves:
 

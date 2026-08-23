@@ -1,0 +1,37 @@
+[
+  {
+    "source": "星座になれたら",
+    "expected": "seiza ni naretara",
+    "category": "song-title",
+    "gate": "dictionary-required",
+    "rationale": "Motivating title with contextual Kanji and spacing."
+  },
+  {
+    "source": "愛してる",
+    "expected": "aishiteru",
+    "category": "common-expression",
+    "gate": "dictionary-required",
+    "rationale": "Common expression with Kanji reading and attached inflection."
+  },
+  {
+    "source": "東京",
+    "expected": "toukyou",
+    "category": "common-vocabulary",
+    "gate": "dictionary-required",
+    "rationale": "Confirms the ASCII long-vowel convention."
+  },
+  {
+    "source": "とうきょう",
+    "expected": "toukyou",
+    "category": "kana-control",
+    "gate": "kana-adapter",
+    "rationale": "Deterministic Kana control for the romanization adapter."
+  },
+  {
+    "source": "龘",
+    "expected": "龘",
+    "category": "unknown",
+    "gate": "dictionary-required",
+    "rationale": "Unknown Han must remain original instead of receiving a guessed reading."
+  }
+]

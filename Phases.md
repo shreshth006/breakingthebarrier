@@ -1,7 +1,7 @@
 # Breaking the Barrier — Implementation Phases
 
 - **Planning bootstrap:** Complete
-- **Current implementation phase:** Phase 0 — not started
+- **Current implementation phase:** Phase 0 — in progress
 - **Last updated:** 2026-08-24
 
 ## 1. Roadmap principles
