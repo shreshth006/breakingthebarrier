@@ -1,6 +1,6 @@
 # Breaking the Barrier — Product Requirements Document
 
-- **Document status:** Planning baseline 1.0
+- **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-24
 - **Implementation status:** Not started
 
@@ -161,12 +161,12 @@ Spotlight captures a small region around a stationary pointer after a deliberate
 
 ### 9.3 Japanese processing
 
-- **FR-JA-01:** Japanese V1 must use contextual morphological analysis for Kanji readings rather than character substitution.
+- **FR-JA-01:** The initial V2 Japanese engine must use contextual morphological analysis for Kanji readings rather than character substitution.
 - **FR-JA-02:** The default output must use the product's ASCII Hepburn policy: familiar Hepburn spellings, vowel sequences such as `toukyou`, and grammatical particle pronunciation where the analyzer supplies reliable part-of-speech context.
 - **FR-JA-03:** The engine must preserve source and token offsets so future renderers can align readings with original text.
 - **FR-JA-04:** Unknown Kanji tokens without a reliable reading must remain original and carry an internal warning; they must not receive a guessed per-character reading.
 - **FR-JA-05:** The engine must be replaceable behind a stable language-engine contract.
-- **FR-JA-06:** Japanese code, dictionary data, and romanization rules must work without a local server or network request.
+- **FR-JA-06:** Japanese code, dictionary data, and romanization rules must run entirely inside the packaged extension without a network request, native-messaging bridge, companion process, or separately installed runtime.
 
 ### 9.4 Rendering and restoration
 
@@ -321,6 +321,7 @@ The current product does not include:
 
 - translation as a core behavior;
 - accounts, login, cloud sync, subscriptions, or a server backend;
+- Python or any other separately installed companion runtime, native-messaging bridge, local service, or native daemon;
 - LLM or generative-AI text processing;
 - an AI chatbot;
 - telemetry or analytics dashboards;

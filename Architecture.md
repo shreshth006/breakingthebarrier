@@ -1,26 +1,27 @@
 # Breaking the Barrier — Architecture
 
-- **Document status:** Planning baseline 1.0
+- **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-24
 - **Target:** Chromium desktop, Manifest V3
 - **Implementation status:** Not started
 
 ## 1. Repository audit
 
-The current repository is a historical proof of concept, not a foundation to extend in place.
+Breaking the Barrier V1 is historical evidence of the idea, not a technical foundation for V2. Its source is preserved only under `legacy/prototype-2024/`; the active product will be built from a clean browser-native TypeScript foundation.
 
 ### 1.1 What exists
 
-- `manifest.json` declares Manifest V3, `activeTab`, `scripting`, a persistent `<all_urls>` host permission, a popup, and a content script on all URLs.
-- `popup.js` captures the visible tab and sends the base64 screenshot to `http://127.0.0.1:5000/convert`.
-- `Back end/app.py` decodes the image, calls native Tesseract with Japanese language data, passes the recognized string to `pykakasi`, and returns one `romaji` string.
-- `popup.html` displays the returned string in the popup.
-- The current `content.js` is empty.
+- `legacy/prototype-2024/manifest.json` declares Manifest V3, `activeTab`, `scripting`, a persistent `<all_urls>` host permission, a popup, and a content script on all URLs.
+- `legacy/prototype-2024/popup.js` captures the visible tab and sends the base64 screenshot to `http://127.0.0.1:5000/convert`.
+- `legacy/prototype-2024/Back end/app.py` decodes the image, calls native Tesseract with Japanese language data, passes the recognized string to `pykakasi`, and returns one `romaji` string.
+- `legacy/prototype-2024/popup.html` displays the returned string in the popup.
+- The archived `legacy/prototype-2024/content.js` is empty.
 - There is no dependency manifest, setup guide, test suite, CORS configuration, positional OCR result, page overlay, settings storage, error boundary around `fetch`, or live DOM behavior.
+- There is no active V2 implementation yet; Phase 0 creates it without importing or running the archive.
 
 ### 1.2 What Git history adds
 
-The initial commit accepted a JSON text field and used Python `romkan`. A later commit introduced screenshot OCR and `pykakasi`. An intermediate content script attempted to replace a hard-coded `.lyrics-selector`, but it was removed in the final prototype commit. The current prototype therefore demonstrates only this intended chain:
+The initial commit accepted a JSON text field and used Python `romkan`. A later commit introduced screenshot OCR and `pykakasi`. An intermediate content script attempted to replace a hard-coded `.lyrics-selector`, but it was removed in the final prototype commit. The archived prototype therefore demonstrates only this intended chain:
 
 ```text
 manual popup click
@@ -50,14 +51,14 @@ It does not demonstrate changing page text, dynamic observation, restoration, or
 - Site-specific selectors as the primary mechanism.
 - Unstructured, destructive DOM replacement.
 
-Phase 0 will move the existing prototype with Git history intact into `legacy/prototype-2024/` and add a short explanation. This planning task does not move or delete it.
+The prototype is now archived with Git-traceable paths under `legacy/prototype-2024/` and explained by its local README. Nothing in that directory may be imported, built, executed, packaged, or treated as a dependency. Phase 0 starts the active V2 tree from scratch.
 
 ## 2. Architectural goals
 
 1. Make accessible DOM text the primary, fastest pipeline.
 2. Remain correct on single-page applications and incremental DOM updates without periodic full-page rescans.
 3. Make every page transformation reversible and resistant to stale asynchronous results.
-4. Keep text, screenshots, dictionaries, and models local by default.
+4. Keep text, screenshots, dictionaries, and models local by default inside the packaged extension.
 5. Separate script detection, language evidence, reading generation, romanization policy, and rendering.
 6. Allow new language engines and renderers without changing DOM orchestration.
 7. Load heavy assets only after a relevant user action.
@@ -95,7 +96,31 @@ Script is not language. Han-only text is ambiguous. Unknown readings stay origin
 
 Content scripts run in the isolated extension world. Main-world injection, DOM API monkey-patching, and remote code are prohibited unless a later decision record changes this with evidence.
 
-## 4. Selected system overview
+## 4. Conceptual system model
+
+V2 has four major product systems. This is the model contributors should hold even though later sections describe the browser contexts and reliability mechanics in detail:
+
+1. **Page Reader:** walks accessible DOM text, detects relevant script, and watches page-authored changes.
+2. **Language Engine:** turns Japanese source into readings and policy-controlled romaji.
+3. **Renderer:** switches eligible content between its authoritative original and a reversible romanized representation.
+4. **Pixel Reader:** captures pixels, performs OCR, and returns text with coordinates. It is added later and remains separate from the DOM path.
+
+The service worker is browser glue, the popup is controls, and storage holds preferences. They coordinate the four systems but are not additional product domains.
+
+```mermaid
+flowchart LR
+    Page["Page Reader<br/>DOM → detect → watch"] --> Engine["Language Engine<br/>Japanese → reading → romaji"]
+    Engine --> Renderer["Renderer<br/>original ↔ romanized"]
+    Pixel["Pixel Reader (later)<br/>screenshot → OCR → coordinates"] --> Engine
+    Popup["Popup<br/>controls"] --> SW["Service Worker<br/>browser glue"]
+    SW --> Page
+    SW -.-> Pixel
+    Storage["Storage<br/>preferences"] --> SW
+```
+
+The remaining architecture is deliberately detailed so implementation agents preserve page safety, lifecycle correctness, and privacy. That detail does not imply a more complicated product or authorize more systems.
+
+### 4.1 Selected deployment view
 
 ```mermaid
 flowchart LR
@@ -115,7 +140,7 @@ flowchart LR
     Content --> Storage
 ```
 
-The extension has two processing planes:
+The four conceptual systems are deployed across two processing planes:
 
 - The **page plane** lives in isolated content scripts. It discovers and owns temporary representations of page text.
 - The **processor plane** lives in one extension offscreen document and its workers. It owns heavyweight language and OCR state shared across frames and tabs.
@@ -379,7 +404,7 @@ It does not include a numeric language or reading confidence unless the underlyi
 
 An `EngineRegistry` selects engines from language evidence. A `FormattingPolicy` turns token readings into a display string. A `Renderer` consumes results. These interfaces prevent a second language or a new renderer from importing Japanese internals.
 
-## 10. Japanese V1 engine
+## 10. Japanese engine for V2
 
 ### 10.1 Selected dependency direction
 
@@ -401,6 +426,8 @@ These become approved production dependencies only after the Phase 0 gate proves
 - no unsafe dynamic code or remote asset fallback.
 
 If the gate fails, the engine contract remains unchanged while the dependency decision is reopened.
+
+The manually verified golden Japanese corpus is the sole output authority. Lindera and Kuroshiro/Kuromoji are candidates measured against the same expected strings; V1 output and Python tools are not reference implementations.
 
 ### 10.2 Build-time dictionary handling
 
@@ -463,7 +490,7 @@ Spacing rules are versioned independently from the dictionary so caches invalida
 
 Kuroshiro has a convenient browser API and built-in romanization, but its latest npm release is about five years old. Its Kuromoji analyzer and Kuromoji dependency were last published about eight years ago, and the Kuromoji package is roughly 39 MiB unpacked with about 18 MiB of compressed dictionary files. It remains a useful benchmark and fallback candidate, not the selected starting point.
 
-`pykakasi` remains valuable as an offline comparison oracle during corpus construction, but using it in production would retain the Python/server installation burden.
+Phase 0 compares Lindera and Kuroshiro/Kuromoji only against the manually verified golden corpus. Candidate agreement is diagnostic, not proof of correctness; the expected corpus output remains authoritative.
 
 ## 11. Initial DOM processing pipeline
 
@@ -1139,7 +1166,7 @@ All versions are pinned by the Phase 0 lockfile after compatibility checks. Docu
 ├── third_party/
 │   └── licenses/
 └── legacy/
-    └── prototype-2024/          # current extension and Flask prototype
+    └── prototype-2024/          # inert archived V1; never built or imported
 ```
 
 Responsibilities must remain aligned with these boundaries. A future agent may refine file names during Phase 0, but changing context ownership or dependency direction requires an explicit decision update.
@@ -1166,13 +1193,13 @@ Responsibilities must remain aligned with these boundaries. A future agent may r
 
 **Trade-offs:** Mutation ownership, class-only visibility changes, and Shadow DOM require careful handling and tests.
 
-### D-03 — Browser-only local processor
+### D-03 — Zero-Python browser-native V2
 
-**Decision:** Remove the Python/Flask/native-Tesseract runtime from the product path.
+**Decision:** V2 is browser-native TypeScript/JavaScript. Python, Flask, Python packages, Python build/test/benchmark scripts, native messaging, local services, and native daemons are prohibited throughout the active product and development architecture. Historical Python source may exist only in the inert V1 archive.
 
 **Reason:** Installation, privacy, offline use, store distribution, and reliability are materially better when all processing is bundled.
 
-**Alternatives considered:** Local Flask, native messaging, hosted APIs, and cloud language services.
+**Alternatives considered:** Local Flask, a Python helper, native messaging, hosted APIs, and cloud language services.
 
 **Trade-offs:** Extension package and browser memory are larger, and WASM/worker packaging is an early technical risk.
 
@@ -1192,7 +1219,7 @@ Responsibilities must remain aligned with these boundaries. A future agent may r
 
 **Reason:** It is actively maintained, browser-capable, contextual, local, and returns token readings/offsets.
 
-**Alternatives considered:** Kuroshiro/Kuromoji, pykakasi server, MeCab native/emscripten, Sudachi WASM, remote APIs, and naïve Kana/Kanji mapping.
+**Alternatives considered:** Kuroshiro/Kuromoji, MeCab native/emscripten, Sudachi WASM, remote APIs, and naïve Kana/Kanji mapping.
 
 **Trade-offs:** The dictionary is substantial, WASM requires explicit CSP, token schema needs an adapter, and output quality must be measured. The decision is reversible behind the engine contract if the Phase 0 gate fails.
 

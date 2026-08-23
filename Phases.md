@@ -7,6 +7,7 @@
 ## 1. Roadmap principles
 
 - Prove the DOM thesis before OCR.
+- Keep V2 browser-native: TypeScript/JavaScript and browser APIs only, with no Python or local service in development or production.
 - Keep every phase shippable to a developer build with explicit limitations.
 - Treat restoration, privacy, and performance as foundational behavior, not polish.
 - Use stable local fixtures for release gates; use real production sites as smoke tests unless product scope explicitly makes them contractual.
@@ -28,22 +29,36 @@ A phase is complete only when:
 
 A passing compilation or a demonstration on one page is not phase completion.
 
+## 3. MVP critical path
+
+The milestone sequence is intentionally simple. The detailed criteria below are safety and verification guardrails, not additional product systems.
+
+```mermaid
+flowchart LR
+    P0["Phase 0<br/>Clean TypeScript extension<br/>Local Japanese engine"] --> P1["Phase 1<br/>Static DOM romanization"]
+    P1 --> P2["Phase 2<br/>Dynamic SPA updates<br/>No refresh"]
+    P2 --> P3["Phase 3<br/>Controls + remembered sites<br/>MVP complete"]
+    P3 --> P4["Phase 4<br/>Better rendering"]
+    P4 --> P5["Phase 5<br/>Lens OCR"]
+    P5 --> P6["Phase 6<br/>Spotlight"]
+    P6 --> P7["Phase 7<br/>Second language"]
+```
+
 ## Phase 0 — Repository modernization and architecture spikes
 
 ### Objective
 
-Create a minimal, testable Manifest V3 development foundation and retire the old prototype from the active product path without deleting its history. Resolve the highest-risk Japanese-engine, package, worker, CSP, and local-asset assumptions before building the DOM product around them.
+Create a minimal, testable Manifest V3 TypeScript foundation from scratch while keeping the archived V1 prototype inert. Resolve the highest-risk Japanese-engine, package, worker, CSP, and local-asset assumptions before building the DOM product around them. Phase 0 must use no Python, Flask, native daemon, native messaging, local service, or runtime network dependency.
 
 ### Dependencies
 
 - The five planning documents in the project root.
-- Current prototype and Git history.
+- Archived prototype and Git history for evidence only, never as an implementation dependency.
 - Current official Chrome, Lindera, WanaKana, and dependency documentation.
 
 ### Scope
 
-- Move the current proof of concept with Git-aware moves into `legacy/prototype-2024/`.
-- Add a legacy README that states what the prototype did and did not do.
+- Preserve the completed `legacy/prototype-2024/` archive and its boundary README without importing or executing it.
 - Create `Memory.md` using the template in `Rules.md` because implementation begins here.
 - Scaffold npm, strict TypeScript, Vite, Vitest/jsdom, Playwright, ESLint, and build verification.
 - Produce an unpacked Chromium Manifest V3 extension with only planned MVP permissions.
@@ -53,7 +68,17 @@ Create a minimal, testable Manifest V3 development foundation and retire the old
 - Spike Lindera WASM in the offscreen worker and WanaKana behind a small `ascii-hepburn-v1` adapter.
 - Build the first Japanese quality corpus, including the motivating examples, mixed text, particles, names, and unknown terms.
 - Measure package size, installed assets, cold readiness, warm throughput, peak/steady memory, offline behavior, and CSP/store packaging constraints.
-- Compare a small representative corpus against Kuroshiro/Kuromoji and a trusted offline pykakasi reference to understand trade-offs; these are benchmark tools, not production architecture.
+- Compare Lindera and Kuroshiro/Kuromoji against the same manually verified golden Japanese corpus. The corpus is the authority; candidate agreement and V1 behavior are not correctness oracles.
+
+The initial authoritative corpus includes at least:
+
+```json
+[
+  { "source": "星座になれたら", "expected": "seiza ni naretara", "category": "song-title" },
+  { "source": "愛してる", "expected": "aishiteru", "category": "common-expression" },
+  { "source": "東京", "expected": "toukyou", "category": "common-vocabulary" }
+]
+```
 
 ### Likely files and components
 
@@ -66,7 +91,7 @@ Create a minimal, testable Manifest V3 development foundation and retire the old
 - `scripts/prepare-ipadic.mjs`, `scripts/verify-dist.mjs`.
 - `assets/dictionaries/ipadic/`, `third_party/licenses/`.
 - `tests/corpus/japanese/`, `tests/unit/`, `tests/integration/`.
-- `legacy/prototype-2024/README.md` and `Memory.md`.
+- `legacy/prototype-2024/README.md` (already present and inert) and `Memory.md`.
 
 ### Deliverables
 
@@ -76,6 +101,7 @@ Create a minimal, testable Manifest V3 development foundation and retire the old
 - A Japanese spike report committed to `Memory.md` or a concise Phase 0 section in `Architecture.md` with exact tested versions and measurements.
 - A checksum-verified local dictionary asset process and complete third-party notices.
 - A go/no-go decision for Lindera/WanaKana.
+- An active build, test, benchmark, and release workflow containing no Python, Flask, native service, or native messaging dependency.
 
 ### Acceptance criteria
 
@@ -89,7 +115,8 @@ Create a minimal, testable Manifest V3 development foundation and retire the old
 - Real measurements are recorded against the PRD budgets: compressed assets, cold readiness, warm 100-string batch, and peak/steady memory.
 - The selected engine meets the budgets or a documented, product-approved exception/fallback decision updates `Architecture.md` before Phase 1.
 - The built artifact contains no remote executable URL or runtime dictionary/model download.
-- Existing prototype history remains accessible under `legacy/`.
+- The active source, tooling, tests, benchmarks, and built artifact use no Python, Flask, native daemon, native messaging, or local service.
+- Existing prototype history remains accessible but inert under `legacy/`, and nothing outside the archive imports or invokes it.
 
 ### Required tests
 
@@ -101,6 +128,7 @@ Create a minimal, testable Manifest V3 development foundation and retire the old
 - ASCII Hepburn and spacing golden tests.
 - Offline Chromium worker smoke test.
 - Asset checksum and license-notice verification.
+- Repository and distribution boundary check that rejects active references to Python services or files under `legacy/`.
 
 ### Explicitly out of scope
 

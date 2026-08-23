@@ -1,10 +1,14 @@
 # Breaking the Barrier — Engineering Rules
 
-- **Document status:** Planning baseline 1.0
+- **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-24
 - **Applies to:** Human contributors and AI coding agents
 
 These rules protect the product thesis, page safety, privacy, and the implementation boundaries in `Architecture.md`. “Must” and “must not” are release requirements. Exceptions require an explicit written decision with evidence and corresponding documentation changes.
+
+> **Breaking the Barrier V2 is a browser-native TypeScript application. Python, Flask, native Python packages, Python build scripts, Python test tools, native messaging, and local Python services must not be introduced into the active product or development architecture. The historical Python prototype may exist only under `legacy/` and must never be an implementation dependency.**
+
+This boundary is non-negotiable within V2. Work that requires a Python or native companion process belongs to a different project, not a dependency exception.
 
 ## 1. Read before editing
 
@@ -35,7 +39,7 @@ If these documents disagree:
 - Do not create site-specific scrapers while a generic DOM solution is viable.
 - Do not treat Spotify, YouTube, or another site's private DOM as a stable API.
 - Do not rename Breaking the Barrier.
-- Do not delete the historical prototype. Phase 0 may move it with Git history into `legacy/prototype-2024/` and document it.
+- Do not delete or reactivate the historical prototype. It stays under `legacy/prototype-2024/` and must never be imported, built, executed, packaged, tested as active code, or used as an implementation dependency.
 - If a requested change expands permissions, sends data off-device, changes the default renderer, or changes language correctness policy, update the decision records and obtain product approval.
 
 ## 3. General engineering
@@ -62,7 +66,8 @@ If these documents disagree:
 - Do not add persistent `<all_urls>` host permission.
 - Declare broad HTTP(S) patterns only under `optional_host_permissions`, then request the concrete current origin in a user gesture.
 - Do not add `tabs` simply to call methods that do not require the `tabs` permission.
-- Do not add cookies, history, webRequest, debugger, nativeMessaging, clipboard, camera, microphone, or other permissions without a reviewed product requirement and decision record.
+- Never add the `nativeMessaging` permission.
+- Do not add cookies, history, webRequest, debugger, clipboard, camera, microphone, or other permissions without a reviewed product requirement and decision record.
 - Bundle all executable JavaScript and WASM. Never load executable code from a CDN or remote URL.
 - Bundle required dictionaries and OCR models for release. No silent runtime model download or remote fallback.
 - Keep the extension page CSP at the minimum needed. `wasm-unsafe-eval` is allowed only because the selected local engine requires WASM; ordinary `eval`, `new Function`, and inline scripts remain forbidden.
@@ -248,13 +253,14 @@ Do not add a package for a trivial helper that can be expressed safely in a smal
 
 “Approved candidate” does not mean any version is acceptable. The exact tested version is pinned in the first implementation lockfile and recorded in `Memory.md`.
 
+Python is not a candidate dependency at any layer. Do not introduce `.py` tooling, Python environment files, Python package manifests, Flask, native Python packages, Python-based benchmarks or test runners, native messaging, or a local Python service outside the inert `legacy/` archive.
+
 ### 13.3 Avoid unless a new decision justifies them
 
 - React, Vue, Svelte, Angular, or another popup UI framework.
 - Plasmo, WXT, CRXJS, or another extension framework/plugin that hides manifest or context behavior.
 - jQuery or DOM manipulation libraries.
 - Kuroshiro/Kuromoji as the production engine without reopening the Phase 0 evidence comparison.
-- Python, Flask, native Tesseract, native messaging, or a local daemon in the product path.
 - Cloud OCR, translation, LLM, analytics, or telemetry SDKs.
 - General-purpose language-detection models for the MVP when script and page evidence are sufficient.
 - Persistent database/cache libraries for page-derived content.
@@ -266,8 +272,9 @@ Do not add a package for a trivial helper that can be expressed safely in a smal
 
 - Preserve unrelated user changes in a dirty worktree.
 - Keep commits reviewable and aligned with phase deliverables.
+- After verifying a completed requested change, commit it and push the current branch unless the user explicitly says not to.
 - Do not combine generated dictionary blobs, a broad refactor, and behavioral code in one unexplained change.
-- Use Git moves when relocating the prototype so history remains traceable.
+- Keep the archived prototype in `legacy/prototype-2024/`; do not copy its files back into the active tree.
 - Do not rewrite or squash historical prototype commits merely to modernize the tree.
 - Generated assets must have reproducible source/checksum metadata and a clear ignore/commit policy.
 - Update `Phases.md` status only after acceptance criteria pass.
