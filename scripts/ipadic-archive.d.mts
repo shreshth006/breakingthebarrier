@@ -1,0 +1,11 @@
+export const IPADIC_VERSION: string;
+export const IPADIC_FORMAT_VERSION: number;
+export const IPADIC_ARCHIVE_URL: string;
+export const IPADIC_ARCHIVE_SHA256: string;
+export const IPADIC_ARCHIVE_BYTES: number;
+export const IPADIC_ARCHIVE_PATH: string;
+export const IPADIC_DIST_DIRECTORY: string;
+export const IPADIC_FILES: Readonly<Record<string, Readonly<{ bytes: number; sha256: string }>>>;
+export const IPADIC_RUNTIME_FILES: readonly string[];
+export function verifyIpadicArchiveBytes(archive: Buffer): Map<string, Buffer>;
+export function readVerifiedIpadicArchive(): Promise<Map<string, Buffer>>;

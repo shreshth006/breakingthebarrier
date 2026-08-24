@@ -1,0 +1,12 @@
+{
+  "name": "Lindera IPADIC",
+  "version": "5.3.0",
+  "dictionaryFormatVersion": 2,
+  "source": "https://github.com/lindera/lindera/releases/download/v5.3.0/lindera-ipadic-5.3.0.zip",
+  "release": "https://github.com/lindera/lindera/releases/tag/v5.3.0",
+  "archive": "assets/lindera-ipadic-5.3.0.zip",
+  "archiveBytes": 10519545,
+  "archiveSha256": "6c361500b091abc1143c1d5abdd66a69463ab911685daf6ba74d6aeee7e180fe",
+  "publishedAt": "2026-08-16T14:49:14Z",
+  "notice": "licenses/lindera-ipadic-5.3.0-NOTICE.txt"
+}

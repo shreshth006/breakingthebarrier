@@ -1,5 +1,11 @@
+import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, join, relative, resolve } from "node:path";
+import {
+  IPADIC_DIST_DIRECTORY,
+  IPADIC_FILES,
+  IPADIC_RUNTIME_FILES,
+} from "./ipadic-archive.mjs";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 const distRoot = join(projectRoot, "dist");
@@ -97,7 +103,26 @@ await Promise.all([
     ),
   ),
   assertFile(join(distRoot, "third_party/licenses/wanakana-MIT.txt")),
+  assertFile(
+    join(
+      distRoot,
+      "third_party/licenses/lindera-ipadic-5.3.0-NOTICE.txt",
+    ),
+  ),
 ]);
+
+for (const dictionaryFile of IPADIC_RUNTIME_FILES) {
+  const path = join(distRoot, IPADIC_DIST_DIRECTORY, dictionaryFile);
+  await assertFile(path);
+  const bytes = await readFile(path);
+  const expected = IPADIC_FILES[dictionaryFile];
+  assert(expected !== undefined, `Missing dictionary provenance for ${dictionaryFile}`);
+  assert(bytes.length === expected.bytes, `Built dictionary size mismatch: ${dictionaryFile}`);
+  assert(
+    createHash("sha256").update(bytes).digest("hex") === expected.sha256,
+    `Built dictionary SHA-256 mismatch: ${dictionaryFile}`,
+  );
+}
 
 const distFiles = await listFiles(distRoot);
 const executableFiles = distFiles.filter((path) =>
@@ -153,6 +178,10 @@ console.log(
       files: distFiles.length,
       wasmFiles: wasmFiles.length,
       totalBytes,
+      dictionaryBytes: IPADIC_RUNTIME_FILES.reduce(
+        (total, name) => total + IPADIC_FILES[name].bytes,
+        0,
+      ),
     },
     null,
     2,

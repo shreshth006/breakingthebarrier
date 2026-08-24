@@ -3,18 +3,30 @@ import type { BtbError } from "./errors";
 
 export type MessageTarget = "serviceWorker" | "processor" | "popup";
 
-export type ProcessorCapability = "lindera-wasm" | "kana-romanizer";
+export type ProcessorCapability =
+  | "lindera-wasm"
+  | "ipadic-tokenizer"
+  | "kana-romanizer";
 
 export interface ProcessorVersions {
   readonly lindera: string;
   readonly wanakana: string;
+  readonly dictionary: string;
   readonly romanizationPolicy: string;
+  readonly spacingPolicy: string;
+}
+
+export interface ProcessorMeasurements {
+  readonly coldReadyMs: number;
+  readonly warmBatchItems: 100;
+  readonly warmBatchMs: number;
 }
 
 export interface ProcessorProbeDetails {
   readonly status: "ready";
   readonly capabilities: readonly ProcessorCapability[];
   readonly versions: ProcessorVersions;
+  readonly measurements: ProcessorMeasurements;
   readonly selfTestPassed: true;
 }
 
@@ -88,6 +100,7 @@ export function createProcessorProbeResponse(
     status: details.status,
     capabilities: details.capabilities,
     versions: details.versions,
+    measurements: details.measurements,
     selfTestPassed: details.selfTestPassed,
   };
 }
@@ -104,6 +117,7 @@ export function createProcessorEnsureResponse(
     status: details.status,
     capabilities: details.capabilities,
     versions: details.versions,
+    measurements: details.measurements,
     selfTestPassed: details.selfTestPassed,
   };
 }

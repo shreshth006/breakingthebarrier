@@ -20,6 +20,8 @@ export type BtbCauseCategory =
   | "worker"
   | "engine-module"
   | "engine-load"
+  | "dictionary-fetch"
+  | "dictionary-schema"
   | "wasm-compile"
   | "wasm-link"
   | "wasm-runtime"

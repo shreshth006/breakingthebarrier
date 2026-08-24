@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
+import {
+  IPADIC_DIST_DIRECTORY,
+  IPADIC_RUNTIME_FILES,
+  readVerifiedIpadicArchive,
+} from "./scripts/ipadic-archive.mjs";
 
 const projectRoot = import.meta.dirname;
 const licenseFiles = [
@@ -8,12 +13,23 @@ const licenseFiles = [
   "wanakana-MIT.txt",
 ] as const;
 
+function requireDictionaryFile(
+  files: ReadonlyMap<string, Buffer>,
+  name: string,
+): Buffer {
+  const file = files.get(name);
+  if (file === undefined) {
+    throw new Error(`Verified IPADIC file is unavailable: ${name}`);
+  }
+  return file;
+}
+
 export default defineConfig({
   base: "./",
   plugins: [
     {
       name: "btb-manifest",
-      generateBundle() {
+      async generateBundle() {
         this.emitFile({
           type: "asset",
           fileName: "manifest.json",
@@ -30,6 +46,21 @@ export default defineConfig({
             ),
           });
         }
+
+        const dictionaryFiles = await readVerifiedIpadicArchive();
+        for (const dictionaryFile of IPADIC_RUNTIME_FILES) {
+          this.emitFile({
+            type: "asset",
+            fileName: `${IPADIC_DIST_DIRECTORY}/${dictionaryFile}`,
+            source: requireDictionaryFile(dictionaryFiles, dictionaryFile),
+          });
+        }
+
+        this.emitFile({
+          type: "asset",
+          fileName: "third_party/licenses/lindera-ipadic-5.3.0-NOTICE.txt",
+          source: requireDictionaryFile(dictionaryFiles, "NOTICE.txt"),
+        });
       },
     },
   ],

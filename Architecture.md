@@ -414,7 +414,14 @@ The selected Phase 0 candidate is:
 - the matching IPADIC release files, packaged inside the extension;
 - WanaKana 5.x for Kana-to-romaji primitives behind the product's own tested romanization policy.
 
-The Phase 0 foundation currently pins `lindera-wasm-bundler` 5.3.0 and WanaKana 5.3.1. The unpacked build packages and initializes the Lindera WASM inside a module worker, but no dictionary is packaged yet; tokenization, IPADIC size/provenance, and corpus accuracy remain open gates. Both installed libraries are MIT-licensed, and their notices ship under `third_party/licenses/`.
+The Phase 0 foundation pins `lindera-wasm-bundler` 5.3.0, its matching
+format-version-2 IPADIC 5.3.0 release, and WanaKana 5.3.1. The official
+10,519,545-byte dictionary archive is committed for offline reproducibility and
+verified against GitHub's published SHA-256
+`6c361500b091abc1143c1d5abdd66a69463ab911685daf6ba74d6aeee7e180fe`.
+The build verifies and emits the nine runtime files plus the upstream notice.
+Lindera and WanaKana are MIT-licensed; the separate MeCab IPADIC/ICOT terms are
+shipped verbatim under `third_party/licenses/`.
 
 These become approved production dependencies only after the Phase 0 gate proves:
 
@@ -443,7 +450,10 @@ Phase 0 introduces a reproducible asset script that:
 
 Release artifacts include the required dictionary files. The offscreen worker resolves them through extension URLs and passes bytes to Lindera's dictionary loader. No CDN, GitHub request, OPFS bootstrap download, or native binary is required after installation.
 
-Generated dictionary assets need not be committed if the build is reproducible and CI/release environments can fetch the pinned artifact. The release process must still support an offline verification build from a prepared cache.
+The compressed official archive is committed under `third_party/assets/` so a
+fresh checkout can build and verify offline. `npm run assets:acquire` is the
+explicit maintainer refresh path; normal builds never download. The Vite build
+extracts only the verified runtime files into the unpacked extension.
 
 ### 10.3 Token mapping
 
@@ -456,7 +466,12 @@ Only `JapaneseLinderaAdapter` knows the pinned IPADIC detail schema. It maps raw
 - pronunciation;
 - known versus out-of-vocabulary state.
 
-The adapter uses the pronunciation field when valid, then reading, then a Kana source fallback. A Han-bearing token without a valid reading is marked unknown and kept original. Schema positions are named constants with fixture tests; they may not leak into renderers or generic engine code.
+The adapter uses the orthographic reading field for lexical tokens so written
+long vowels remain sequences such as `toukyou`. It uses pronunciation first for
+grammatical particles, then falls back to reading, pronunciation, and a Kana
+source in that order. A Han-bearing token without a valid reading is marked
+unknown and kept original. Schema positions are named constants with fixture
+tests; they may not leak into renderers or generic engine code.
 
 Byte offsets from WASM must be converted to JavaScript string offsets through a tested mapper because JavaScript uses UTF-16 code units and Japanese strings may contain supplementary characters or emoji.
 
@@ -491,6 +506,28 @@ Spacing rules are versioned independently from the dictionary so caches invalida
 Kuroshiro has a convenient browser API and built-in romanization, but its latest npm release is about five years old. Its Kuromoji analyzer and Kuromoji dependency were last published about eight years ago, and the Kuromoji package is roughly 39 MiB unpacked with about 18 MiB of compressed dictionary files. It remains a useful benchmark and fallback candidate, not the selected starting point.
 
 Phase 0 compares Lindera and Kuroshiro/Kuromoji only against the manually verified golden corpus. Candidate agreement is diagnostic, not proof of correctness; the expected corpus output remains authoritative.
+
+### 10.7 Phase 0 measured gate status
+
+The 2026-08-24 Linux/Chromium 151 reference run produced these measurements:
+
+- verified dictionary archive: 10,519,545 bytes compressed and 47,524,744 bytes
+  of runtime dictionary files;
+- unpacked extension: 49,482,439 bytes;
+- `zip -9` extension payload: 11,201,876 bytes, below the 25 MiB target;
+- packaged/offline cold readiness: 295.3 ms, below the 2,000 ms target;
+- warm batch of 100 representative strings: 10.1 ms, below the 100 ms target;
+- observed peak and steady incremental Linux proportional set size: 162.6 MiB,
+  above the 150 MiB target.
+
+The PSS result sums Chromium process PSS before and after starting the offscreen
+processor, avoiding the shared-page double counting of RSS. A diagnostic five-
+second sample stayed at roughly the same level; repeated runs observed
+159.2–162.6 MiB. Lindera/WanaKana therefore
+remains a conditional candidate and Phase 0 does not grant a go decision yet.
+The next step is to compare the documented Kuroshiro/Kuromoji fallback and
+investigate whether Lindera's browser loading path can remove at least 13 MiB;
+otherwise a product-approved budget exception or engine change is required.
 
 ## 11. Initial DOM processing pipeline
 

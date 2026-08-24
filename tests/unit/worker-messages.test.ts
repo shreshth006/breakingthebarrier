@@ -17,11 +17,18 @@ describe("Japanese worker messages", () => {
   it("accepts the versioned capability response", () => {
     const response = createJapaneseWorkerProbeResponse("probe-1", {
       status: "ready",
-      capabilities: ["lindera-wasm", "kana-romanizer"],
+      capabilities: ["lindera-wasm", "ipadic-tokenizer", "kana-romanizer"],
       versions: {
         lindera: "5.3.0",
         wanakana: "5.3.1",
+        dictionary: "5.3.0",
         romanizationPolicy: "ascii-hepburn-v1",
+        spacingPolicy: "japanese-spacing-v1",
+      },
+      measurements: {
+        coldReadyMs: 450,
+        warmBatchItems: 100,
+        warmBatchMs: 12,
       },
       selfTestPassed: true,
     });

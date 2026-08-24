@@ -20,6 +20,8 @@ export interface JapaneseWorkerProbeFailure {
   readonly reason:
     | "engine-module"
     | "engine-load"
+    | "dictionary-fetch"
+    | "dictionary-schema"
     | "wasm-compile"
     | "wasm-link"
     | "wasm-runtime"
@@ -78,7 +80,11 @@ export function isJapaneseWorkerProbeRequest(
 export function isJapaneseWorkerProbeResponse(
   value: unknown,
 ): value is JapaneseWorkerProbeResponse {
-  if (!isRecord(value) || !isRecord(value.versions)) {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.versions) ||
+    !isRecord(value.measurements)
+  ) {
     return false;
   }
 
@@ -90,10 +96,20 @@ export function isJapaneseWorkerProbeResponse(
     value.selfTestPassed === true &&
     Array.isArray(value.capabilities) &&
     value.capabilities.includes("lindera-wasm") &&
+    value.capabilities.includes("ipadic-tokenizer") &&
     value.capabilities.includes("kana-romanizer") &&
     typeof value.versions.lindera === "string" &&
     typeof value.versions.wanakana === "string" &&
-    typeof value.versions.romanizationPolicy === "string"
+    typeof value.versions.dictionary === "string" &&
+    typeof value.versions.romanizationPolicy === "string" &&
+    typeof value.versions.spacingPolicy === "string"
+    && typeof value.measurements.coldReadyMs === "number"
+    && Number.isFinite(value.measurements.coldReadyMs)
+    && value.measurements.coldReadyMs >= 0
+    && value.measurements.warmBatchItems === 100
+    && typeof value.measurements.warmBatchMs === "number"
+    && Number.isFinite(value.measurements.warmBatchMs)
+    && value.measurements.warmBatchMs >= 0
   );
 }
 
@@ -107,6 +123,8 @@ export function isJapaneseWorkerProbeFailure(
     typeof value.requestId === "string" &&
     (value.reason === "engine-module" ||
       value.reason === "engine-load" ||
+      value.reason === "dictionary-fetch" ||
+      value.reason === "dictionary-schema" ||
       value.reason === "wasm-compile" ||
       value.reason === "wasm-link" ||
       value.reason === "wasm-runtime" ||

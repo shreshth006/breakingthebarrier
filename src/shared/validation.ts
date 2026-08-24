@@ -11,6 +11,7 @@ import type {
   ProcessorEnsureResponse,
   ProcessorProbeRequest,
   ProcessorProbeResponse,
+  ProcessorMeasurements,
   ProcessorVersions,
 } from "./messages";
 
@@ -128,7 +129,9 @@ function readVersions(value: unknown): ProcessorVersions | null {
     !isRecord(value) ||
     typeof value.lindera !== "string" ||
     typeof value.wanakana !== "string" ||
-    typeof value.romanizationPolicy !== "string"
+    typeof value.dictionary !== "string" ||
+    typeof value.romanizationPolicy !== "string" ||
+    typeof value.spacingPolicy !== "string"
   ) {
     return null;
   }
@@ -136,36 +139,63 @@ function readVersions(value: unknown): ProcessorVersions | null {
   return {
     lindera: value.lindera,
     wanakana: value.wanakana,
+    dictionary: value.dictionary,
     romanizationPolicy: value.romanizationPolicy,
+    spacingPolicy: value.spacingPolicy,
   };
 }
 
 function hasExpectedCapabilities(value: unknown): boolean {
   return (
     Array.isArray(value) &&
-    value.length === 2 &&
+    value.length === 3 &&
     value.includes("lindera-wasm") &&
+    value.includes("ipadic-tokenizer") &&
     value.includes("kana-romanizer")
   );
+}
+
+function readMeasurements(value: unknown): ProcessorMeasurements | null {
+  if (
+    !isRecord(value) ||
+    typeof value.coldReadyMs !== "number" ||
+    !Number.isFinite(value.coldReadyMs) ||
+    value.coldReadyMs < 0 ||
+    value.warmBatchItems !== 100 ||
+    typeof value.warmBatchMs !== "number" ||
+    !Number.isFinite(value.warmBatchMs) ||
+    value.warmBatchMs < 0
+  ) {
+    return null;
+  }
+
+  return {
+    coldReadyMs: value.coldReadyMs,
+    warmBatchItems: 100,
+    warmBatchMs: value.warmBatchMs,
+  };
 }
 
 function readProbeDetails(
   value: Record<string, unknown>,
 ): Omit<ProcessorProbeResponse, "protocolVersion" | "target" | "type" | "requestId"> | null {
   const versions = readVersions(value.versions);
+  const measurements = readMeasurements(value.measurements);
   if (
     value.status !== "ready" ||
     value.selfTestPassed !== true ||
     !hasExpectedCapabilities(value.capabilities) ||
-    versions === null
+    versions === null ||
+    measurements === null
   ) {
     return null;
   }
 
   return {
     status: "ready",
-    capabilities: ["lindera-wasm", "kana-romanizer"],
+    capabilities: ["lindera-wasm", "ipadic-tokenizer", "kana-romanizer"],
     versions,
+    measurements,
     selfTestPassed: true,
   };
 }

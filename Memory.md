@@ -2,14 +2,14 @@
 
 Current phase: Phase 0 — in progress
 
-Current milestone: Browser-native TypeScript foundation with a packaged local
-processor handshake.
+Current milestone: Checksum-pinned IPADIC tokenizer spike with real package,
+latency, corpus, and memory measurements.
 
 Last verified working state: The built MV3 extension loads in Playwright's
 Chromium 151, opens its popup, creates one offscreen document, starts a module
-worker while offline, initializes packaged Lindera WASM 5.3.0, runs the
-WanaKana 5.3.1 Kana self-test, and reports ready without reading or changing a
-webpage.
+worker while offline, loads all nine packaged Lindera IPADIC 5.3.0 files,
+executes the dictionary-backed golden smoke cases, benchmarks a warm batch, and
+reports ready without reading or changing a webpage.
 
 # Completed
 
@@ -23,6 +23,13 @@ webpage.
 - Added the initial golden corpus and executed its Kana-supported control.
 - Added third-party MIT notices and a distribution boundary verifier.
 - Added automated offline Chromium coverage for the real worker handshake.
+- Added the official IPADIC 5.3.0 archive, published checksum, per-file
+  verification, exact format/schema checks, and required redistribution notice.
+- Added the production Japanese adapter with source-aligned segments,
+  byte-to-UTF-16 mapping, unknown-Han preservation, particle pronunciation, and
+  versioned spacing.
+- Executed all dictionary-backed corpus entries against real Lindera WASM.
+- Recorded package, cold/warm latency, and Linux PSS measurements.
 
 # Architecture Decisions
 
@@ -33,6 +40,9 @@ webpage.
 - Heavy Lindera initialization is lazy inside the reusable Japanese worker.
 - Message-envelope creators copy payload fields explicitly so nested worker
   discriminants cannot overwrite outer runtime-message discriminants.
+- Lexical tokens prefer IPADIC's orthographic reading; grammatical particles
+  prefer pronunciation. This preserves `toukyou` while producing `wa`, `e`,
+  and `o` where IPADIC supplies reliable particle context.
 
 # Important Files
 
@@ -47,39 +57,39 @@ webpage.
 
 # Known Issues
 
-- No IPADIC dictionary is acquired or packaged yet; Lindera tokenization is not
-  implemented.
-- Dictionary checksum/provenance and redistribution notices are still open.
-- Dictionary-backed corpus cases, byte-to-UTF-16 mapping, IPADIC schema tests,
-  spacing policy, and unknown-token behavior are not implemented.
 - Kuroshiro/Kuromoji comparison is not run.
-- Cold readiness, warm throughput, peak/steady memory, and final compressed
-  dictionary/package measurements are not recorded on an agreed reference
-  device.
-- The full Phase 0 go/no-go decision is not made.
+- The final measured 162.6 MiB incremental Linux PSS exceeds the 150 MiB
+  Japanese processing target by 12.6 MiB. Repeated runs observed
+  159.2–162.6 MiB. No exception is approved, so Lindera is not yet
+  a Phase 0 go.
+- The worker currently exposes the readiness/self-test path; the bounded public
+  batch message path remains for the next implementation slice.
 
 # Current TODO
 
-- Pin and checksum the matching official IPADIC artifact using JavaScript-only
-  tooling, package its required files, and load it from extension URLs.
-- Implement the Lindera token adapter and execute the dictionary-required
-  golden corpus.
-- Add offset/schema/license tests and measure the Phase 0 budgets.
+- Compare Kuroshiro/Kuromoji against the same corpus and measure its browser
+  package/memory behavior without making it a production dependency.
+- Profile Lindera's 159.2–162.6 MiB PSS and test whether buffer-lifetime or loading
+  changes can bring it below 150 MiB.
+- Add the bounded processor batch message path and crash/retry coverage.
 
 # Tests
 
 Passing:
 
-- `npm run verify` — typecheck, lint, 16 Vitest tests, production build, and
+- `npm run verify` — asset verification, typecheck, lint, 22 Vitest tests,
+  production build, and
   distribution verifier.
 - `npm run test:integration` — one offline unpacked-extension Chromium test for
-  the popup/offscreen/Lindera worker flow.
+  the popup/offscreen/Lindera worker flow, golden self-test, latency budgets,
+  and Linux PSS measurement.
 - `npm install` audit — 0 vulnerabilities reported for 178 installed packages.
 
 Failing/not run:
 
-- Dictionary-backed Japanese quality tests — not runnable until IPADIC lands.
-- Phase 0 package/latency/memory benchmarks — not run.
+- Phase 0 memory budget — measured but failing at 162.6 MiB versus 150 MiB in
+  the final run.
+- Kuroshiro/Kuromoji comparison — not run.
 - Manual Chrome UI check — not run; automated Chromium integration passed.
 
 # Environment / Commands

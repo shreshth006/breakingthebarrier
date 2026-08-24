@@ -7,7 +7,7 @@ export const OFFSCREEN_DOCUMENT_PATH = "src/processor/offscreen.html";
 export const OFFSCREEN_DOCUMENT_JUSTIFICATION =
   "Runs packaged language workers without keeping the service worker alive.";
 
-export const PROCESSOR_PROBE_TIMEOUT_MS = 5_000;
+export const PROCESSOR_PROBE_TIMEOUT_MS = 15_000;
 
 export const INTERNAL_KANA_PROBE = "とうきょう";
 

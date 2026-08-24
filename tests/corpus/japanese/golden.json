@@ -33,5 +33,40 @@
     "category": "unknown",
     "gate": "dictionary-required",
     "rationale": "Unknown Han must remain original instead of receiving a guessed reading."
+  },
+  {
+    "source": "私は東京へ行く。",
+    "expected": "watashi wa toukyou e iku。",
+    "category": "particles",
+    "gate": "dictionary-required",
+    "rationale": "Uses IPADIC pronunciation for grammatical は and へ while preserving punctuation."
+  },
+  {
+    "source": "山田太郎",
+    "expected": "yamada tarou",
+    "category": "name",
+    "gate": "dictionary-required",
+    "rationale": "Reports a common personal name separately from general-vocabulary accuracy."
+  },
+  {
+    "source": "ABC東京123",
+    "expected": "ABCtoukyou123",
+    "category": "mixed-script",
+    "gate": "dictionary-required",
+    "rationale": "Preserves contiguous Latin letters and numbers while romanizing the Japanese token."
+  },
+  {
+    "source": "がっこう",
+    "expected": "gakkou",
+    "category": "kana-control",
+    "gate": "kana-adapter",
+    "rationale": "Fixes sokuon and long-vowel behavior in the ASCII-Hepburn policy."
+  },
+  {
+    "source": "しんよう",
+    "expected": "shin'you",
+    "category": "kana-control",
+    "gate": "kana-adapter",
+    "rationale": "Fixes syllabic-n disambiguation in the ASCII-Hepburn policy."
   }
 ]
