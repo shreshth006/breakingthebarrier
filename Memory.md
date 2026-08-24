@@ -2,14 +2,16 @@
 
 Current phase: Phase 0 — in progress
 
-Current milestone: Checksum-pinned IPADIC tokenizer spike with real package,
-latency, corpus, and memory measurements.
+Current milestone: A checksum-pinned IPADIC tokenizer and bounded production
+batch pipeline with real package, latency, corpus, fallback, and memory
+measurements.
 
 Last verified working state: The built MV3 extension loads in Playwright's
 Chromium 151, opens its popup, creates one offscreen document, starts a module
 worker while offline, loads all nine packaged Lindera IPADIC 5.3.0 files,
-executes the dictionary-backed golden smoke cases, benchmarks a warm batch, and
-reports ready without reading or changing a webpage.
+executes all seven dictionary-backed golden cases through the public batch
+route, rejects oversized input, benchmarks a warm batch, and reports ready
+without reading or changing a webpage.
 
 # Completed
 
@@ -30,6 +32,12 @@ reports ready without reading or changing a webpage.
   versioned spacing.
 - Executed all dictionary-backed corpus entries against real Lindera WASM.
 - Recorded package, cold/warm latency, and Linux PSS measurements.
+- Added a deeply validated public batch route with named size ceilings,
+  request/result correlation, a 15-second timeout, and exactly one retry after
+  worker failure.
+- Explicitly release temporary Lindera token, metadata, and schema WASM handles.
+- Benchmarked Kuroshiro 1.2.0 with its Kuromoji analyzer in an isolated Node and
+  offline-browser spike without changing production dependencies.
 
 # Architecture Decisions
 
@@ -43,6 +51,9 @@ reports ready without reading or changing a webpage.
 - Lexical tokens prefer IPADIC's orthographic reading; grammatical particles
   prefer pronunciation. This preserves `toukyou` while producing `wa`, `e`,
   and `o` where IPADIC supplies reliable particle context.
+- Kuroshiro/Kuromoji is rejected as the fallback because its two output modes
+  matched only 2/7 and 1/7 dictionary-backed cases and its steady browser PSS
+  was 190.8 MiB.
 
 # Important Files
 
@@ -57,39 +68,36 @@ reports ready without reading or changing a webpage.
 
 # Known Issues
 
-- Kuroshiro/Kuromoji comparison is not run.
-- The final measured 162.6 MiB incremental Linux PSS exceeds the 150 MiB
-  Japanese processing target by 12.6 MiB. Repeated runs observed
-  159.2–162.6 MiB. No exception is approved, so Lindera is not yet
-  a Phase 0 go.
-- The worker currently exposes the readiness/self-test path; the bounded public
-  batch message path remains for the next implementation slice.
+- Lindera's repeated 158.4–173.6 MiB incremental Linux PSS measurements exceed
+  the 150 MiB Japanese processing target. Releasing temporary WASM wrappers did
+  not remove the retained dictionary/WASM memory floor. No exception is
+  approved, so Lindera is not yet a Phase 0 go.
+- The measured Kuroshiro/Kuromoji fallback is worse: 190.8 MiB steady browser
+  PSS and materially incorrect output under both built-in spacing modes.
 
 # Current TODO
 
-- Compare Kuroshiro/Kuromoji against the same corpus and measure its browser
-  package/memory behavior without making it a production dependency.
-- Profile Lindera's 159.2–162.6 MiB PSS and test whether buffer-lifetime or loading
-  changes can bring it below 150 MiB.
-- Add the bounded processor batch message path and crash/retry coverage.
+- Decide whether to approve a documented Lindera memory-budget exception or
+  reopen the engine choice around another fully local implementation.
+- If retaining Lindera, investigate deeper dictionary representation or WASM
+  loading changes; temporary JavaScript/WASM wrapper cleanup was insufficient.
 
 # Tests
 
 Passing:
 
-- `npm run verify` — asset verification, typecheck, lint, 22 Vitest tests,
+- `npm run verify` — asset verification, typecheck, lint, 38 Vitest tests,
   production build, and
   distribution verifier.
 - `npm run test:integration` — one offline unpacked-extension Chromium test for
-  the popup/offscreen/Lindera worker flow, golden self-test, latency budgets,
-  and Linux PSS measurement.
+  the popup/offscreen/Lindera worker flow, seven-case public batch, invalid
+  batch rejection, golden self-test, latency budgets, and Linux PSS measurement.
 - `npm install` audit — 0 vulnerabilities reported for 178 installed packages.
 
 Failing/not run:
 
-- Phase 0 memory budget — measured but failing at 162.6 MiB versus 150 MiB in
-  the final run.
-- Kuroshiro/Kuromoji comparison — not run.
+- Phase 0 memory budget — measured but failing at 165.0 MiB versus 150 MiB in
+  the latest passing run; retained runs ranged from 158.4 to 173.6 MiB.
 - Manual Chrome UI check — not run; automated Chromium integration passed.
 
 # Environment / Commands
@@ -105,6 +113,6 @@ Test: `npm run verify && npm run test:integration`
 # Notes for Next Agent
 
 Stay in Phase 0. Do not add DOM scanning, content injection, OCR, Python, a
-server, native messaging, or runtime downloads. The next risk is the official
-IPADIC artifact and its exact v5.3.0 file schema, checksum, license, browser
-loading behavior, and memory cost.
+server, native messaging, or runtime downloads. The engine quality, packaging,
+offline execution, and bounded batch path are proven; the remaining blocker is
+an explicit memory-budget/engine decision.

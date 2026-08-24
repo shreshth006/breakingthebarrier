@@ -51,7 +51,17 @@ describe("official Lindera IPADIC archive", () => {
       requireFile(files, "char_def.bin"),
       requireFile(files, "unk.bin"),
     );
-    assertIpadicSchema(dictionary.metadata.dictionary_schema.get_all_fields());
+    const metadataHandle = dictionary.metadata;
+    try {
+      const schemaHandle = metadataHandle.dictionary_schema;
+      try {
+        assertIpadicSchema(schemaHandle.get_all_fields());
+      } finally {
+        schemaHandle.free();
+      }
+    } finally {
+      metadataHandle.free();
+    }
 
     const builder = new TokenizerBuilder();
     builder.setDictionaryInstance(dictionary);
@@ -62,8 +72,12 @@ describe("official Lindera IPADIC archive", () => {
       {
         tokenize(source: string): readonly LinderaTokenData[] {
           return tokenizer.tokenize(source).map((token) => {
-            const value: unknown = token.toJSON();
-            return value as LinderaTokenData;
+            try {
+              const value: unknown = token.toJSON();
+              return value as LinderaTokenData;
+            } finally {
+              token.free();
+            }
           });
         },
       },

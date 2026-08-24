@@ -2,7 +2,10 @@ import {
   OFFSCREEN_DOCUMENT_JUSTIFICATION,
   OFFSCREEN_DOCUMENT_PATH,
 } from "../shared/config";
-import type { ProcessorProbeRequest } from "../shared/messages";
+import type {
+  ProcessorBatchRequest,
+  ProcessorProbeRequest,
+} from "../shared/messages";
 
 let offscreenCreation: Promise<void> | undefined;
 
@@ -26,6 +29,12 @@ export async function ensureOffscreenDocument(): Promise<void> {
 
 export async function sendProcessorProbe(
   request: ProcessorProbeRequest,
+): Promise<unknown> {
+  return chrome.runtime.sendMessage(request);
+}
+
+export async function sendProcessorBatch(
+  request: ProcessorBatchRequest,
 ): Promise<unknown> {
   return chrome.runtime.sendMessage(request);
 }

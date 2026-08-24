@@ -503,31 +503,56 @@ Spacing rules are versioned independently from the dictionary so caches invalida
 
 ### 10.6 Why not Kuroshiro/Kuromoji as the default
 
-Kuroshiro has a convenient browser API and built-in romanization, but its latest npm release is about five years old. Its Kuromoji analyzer and Kuromoji dependency were last published about eight years ago, and the Kuromoji package is roughly 39 MiB unpacked with about 18 MiB of compressed dictionary files. It remains a useful benchmark and fallback candidate, not the selected starting point.
+Kuroshiro has a convenient browser API and built-in romanization, but its latest
+npm release is about five years old. Its Kuromoji analyzer and Kuromoji
+dependency were last published about eight years ago.
 
-Phase 0 compares Lindera and Kuroshiro/Kuromoji only against the manually verified golden corpus. Candidate agreement is diagnostic, not proof of correctness; the expected corpus output remains authoritative.
+The 2026-08-25 isolated comparison used Kuroshiro 1.2.0,
+`kuroshiro-analyzer-kuromoji` 1.1.0, and Kuromoji 0.1.2 without adding them to
+the production dependency tree. Its Kuromoji package occupied about 40 MiB and
+its compressed dictionaries about 17 MiB. In offline Chromium it produced:
+
+- exact normal-mode output for 2 of the 7 dictionary-backed golden cases;
+- exact spaced-mode output for 1 of the 7 cases;
+- 1,594.9 ms cold readiness and 8.3 ms for a warm batch of 100;
+- 204.8 MiB loaded and 190.8 MiB steady incremental Linux PSS.
+
+The normal mode concatenated morphological words, while spaced mode introduced
+incorrect boundaries for the product policy. It also rendered long vowels with
+macrons rather than the required ASCII vowel sequences. Kuroshiro/Kuromoji is
+therefore rejected as the Phase 0 fallback: it is less accurate on the
+authoritative corpus and consumes more memory than Lindera. Candidate agreement
+was only diagnostic; the manually verified expected output remained the
+correctness authority.
 
 ### 10.7 Phase 0 measured gate status
 
-The 2026-08-24 Linux/Chromium 151 reference run produced these measurements:
+The 2026-08-24 and 2026-08-25 Linux/Chromium 151 reference runs produced these
+measurements:
 
 - verified dictionary archive: 10,519,545 bytes compressed and 47,524,744 bytes
   of runtime dictionary files;
-- unpacked extension: 49,482,439 bytes;
-- `zip -9` extension payload: 11,201,876 bytes, below the 25 MiB target;
-- packaged/offline cold readiness: 295.3 ms, below the 2,000 ms target;
-- warm batch of 100 representative strings: 10.1 ms, below the 100 ms target;
-- observed peak and steady incremental Linux proportional set size: 162.6 MiB,
-  above the 150 MiB target.
+- unpacked extension: 49,489,981 bytes;
+- `zip -9` extension payload: 11,203,672 bytes, below the 25 MiB target;
+- packaged/offline cold readiness: 288.5–324.3 ms, below the 2,000 ms target;
+- warm batch of 100 representative strings: 10.1–25.3 ms, below the 100 ms
+  target;
+- observed peak and steady incremental Linux proportional set size:
+  158.4–173.6 MiB, above the 150 MiB target in every retained run.
 
 The PSS result sums Chromium process PSS before and after starting the offscreen
 processor, avoiding the shared-page double counting of RSS. A diagnostic five-
-second sample stayed at roughly the same level; repeated runs observed
-159.2–162.6 MiB. Lindera/WanaKana therefore
-remains a conditional candidate and Phase 0 does not grant a go decision yet.
-The next step is to compare the documented Kuroshiro/Kuromoji fallback and
-investigate whether Lindera's browser loading path can remove at least 13 MiB;
-otherwise a product-approved budget exception or engine change is required.
+second sample stayed at roughly the same level. Explicitly freeing Lindera's
+temporary token, metadata, and schema wrappers is correct lifecycle hygiene but
+did not remove the retained dictionary/WASM memory floor. The packaged batch
+pipeline now validates bounded requests and deep results at each boundary,
+enforces a 15-second timeout, retries a failed worker operation once, and passes
+all seven dictionary-backed golden cases while Chromium is offline.
+
+Lindera/WanaKana remains the better of the two measured candidates, but Phase 0
+does not grant a go decision because it still exceeds the memory target. Before
+Phase 1, the product must approve a documented budget exception or the engine
+decision must reopen around a different local implementation.
 
 ## 11. Initial DOM processing pipeline
 
@@ -938,7 +963,10 @@ The minimum Chromium version starts at 109 for offscreen support. Phase 0 confir
 - No remote executable code or runtime model/dictionary download.
 - WASM enabled only for extension pages with the minimum CSP directive `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`.
 - No inline scripts, `eval`, dynamically constructed functions, or page-provided code.
-- Per-message length and batch limits; per-capture dimension and byte limits.
+- Transliteration batches allow at most 100 unique items, 2,000 UTF-16 code
+  units per source, and 20,000 total source code units; responses also bound
+  rendered length and segment count. Per-capture dimension and byte limits are
+  defined before Lens ships.
 - Text writes use `Text.data`, never HTML parsing.
 - Extension UI text uses safe text properties, not page-derived HTML.
 - Development logs use error codes, counts, timings, engine versions, and coarse origin permission state; raw content logging requires a deliberate local debug build and is never enabled in release.

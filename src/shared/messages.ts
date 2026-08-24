@@ -1,7 +1,16 @@
 import { PROTOCOL_VERSION } from "./config";
 import type { BtbError } from "./errors";
+import type {
+  TransliterationRequest,
+  TransliterationResult,
+} from "../engines/contracts";
 
-export type MessageTarget = "serviceWorker" | "processor" | "popup";
+export type MessageTarget =
+  | "serviceWorker"
+  | "processor"
+  | "popup"
+  | "content";
+export type CallerTarget = "popup" | "content";
 
 export type ProcessorCapability =
   | "lindera-wasm"
@@ -58,9 +67,41 @@ export interface ProcessorEnsureResponse extends ProcessorProbeDetails {
   readonly requestId: string;
 }
 
+export interface TransliterationBatchRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "transliteration.batch.request";
+  readonly requestId: string;
+  readonly items: readonly TransliterationRequest[];
+}
+
+export interface ProcessorBatchRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "processor";
+  readonly type: "processor.transliteration.batch.request";
+  readonly requestId: string;
+  readonly items: readonly TransliterationRequest[];
+}
+
+export interface ProcessorBatchResponse {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "processor.transliteration.batch.response";
+  readonly requestId: string;
+  readonly results: readonly TransliterationResult[];
+}
+
+export interface TransliterationBatchResponse {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: CallerTarget;
+  readonly type: "transliteration.batch.response";
+  readonly requestId: string;
+  readonly results: readonly TransliterationResult[];
+}
+
 export interface HealthErrorResponse {
   readonly protocolVersion: typeof PROTOCOL_VERSION;
-  readonly target: "popup" | "serviceWorker";
+  readonly target: CallerTarget | "serviceWorker";
   readonly type: "health.error";
   readonly requestId: string | null;
   readonly error: BtbError;
@@ -132,5 +173,58 @@ export function createHealthErrorResponse(
     type: "health.error",
     requestId: error.requestId,
     error,
+  };
+}
+
+export function createTransliterationBatchRequest(
+  requestId: string,
+  items: readonly TransliterationRequest[],
+): TransliterationBatchRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "transliteration.batch.request",
+    requestId,
+    items,
+  };
+}
+
+export function createProcessorBatchRequest(
+  requestId: string,
+  items: readonly TransliterationRequest[],
+): ProcessorBatchRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "processor",
+    type: "processor.transliteration.batch.request",
+    requestId,
+    items,
+  };
+}
+
+export function createProcessorBatchResponse(
+  requestId: string,
+  results: readonly TransliterationResult[],
+): ProcessorBatchResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "processor.transliteration.batch.response",
+    requestId,
+    results,
+  };
+}
+
+export function createTransliterationBatchResponse(
+  target: CallerTarget,
+  requestId: string,
+  results: readonly TransliterationResult[],
+): TransliterationBatchResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target,
+    type: "transliteration.batch.response",
+    requestId,
+    results,
   };
 }

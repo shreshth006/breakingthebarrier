@@ -12,8 +12,16 @@ import type {
   ProcessorProbeRequest,
   ProcessorProbeResponse,
   ProcessorMeasurements,
+  ProcessorBatchRequest,
+  ProcessorBatchResponse,
   ProcessorVersions,
+  TransliterationBatchRequest,
+  TransliterationBatchResponse,
 } from "./messages";
+import {
+  readTransliterationRequests,
+  readTransliterationResults,
+} from "./transliteration-validation";
 
 export type ValidationResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -60,7 +68,8 @@ export function getMessageTarget(value: unknown): MessageTarget | null {
   if (
     value.target === "serviceWorker" ||
     value.target === "processor" ||
-    value.target === "popup"
+    value.target === "popup" ||
+    value.target === "content"
   ) {
     return value.target;
   }
@@ -122,6 +131,72 @@ export function validateProcessorProbeRequest(
       requestId,
     },
   };
+}
+
+function validateBatchRequestEnvelope(
+  value: unknown,
+  target: "serviceWorker" | "processor",
+  type:
+    | "transliteration.batch.request"
+    | "processor.transliteration.batch.request",
+): ValidationResult<TransliterationBatchRequest | ProcessorBatchRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+
+  const requestId = requestIdFrom(value);
+  const items = readTransliterationRequests(value.items);
+  if (
+    !hasProtocol(value) ||
+    value.target !== target ||
+    value.type !== type ||
+    requestId === null ||
+    items === null
+  ) {
+    return invalidMessage(requestId);
+  }
+
+  return target === "serviceWorker"
+    ? {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "serviceWorker",
+          type: "transliteration.batch.request",
+          requestId,
+          items,
+        },
+      }
+    : {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "processor",
+          type: "processor.transliteration.batch.request",
+          requestId,
+          items,
+        },
+      };
+}
+
+export function validateTransliterationBatchRequest(
+  value: unknown,
+): ValidationResult<TransliterationBatchRequest> {
+  return validateBatchRequestEnvelope(
+    value,
+    "serviceWorker",
+    "transliteration.batch.request",
+  ) as ValidationResult<TransliterationBatchRequest>;
+}
+
+export function validateProcessorBatchRequest(
+  value: unknown,
+): ValidationResult<ProcessorBatchRequest> {
+  return validateBatchRequestEnvelope(
+    value,
+    "processor",
+    "processor.transliteration.batch.request",
+  ) as ValidationResult<ProcessorBatchRequest>;
 }
 
 function readVersions(value: unknown): ProcessorVersions | null {
@@ -262,6 +337,73 @@ export function validateProcessorEnsureResponse(
   };
 }
 
+function validateBatchResponseEnvelope(
+  value: unknown,
+  target: "serviceWorker" | "popup" | "content",
+  type:
+    | "processor.transliteration.batch.response"
+    | "transliteration.batch.response",
+): ValidationResult<ProcessorBatchResponse | TransliterationBatchResponse> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+
+  const requestId = requestIdFrom(value);
+  const results = readTransliterationResults(value.results);
+  if (
+    !hasProtocol(value) ||
+    value.target !== target ||
+    value.type !== type ||
+    requestId === null ||
+    results === null
+  ) {
+    return invalidMessage(requestId);
+  }
+
+  return target === "serviceWorker"
+    ? {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "serviceWorker",
+          type: "processor.transliteration.batch.response",
+          requestId,
+          results,
+        },
+      }
+    : {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target,
+          type: "transliteration.batch.response",
+          requestId,
+          results,
+        },
+      };
+}
+
+export function validateProcessorBatchResponse(
+  value: unknown,
+): ValidationResult<ProcessorBatchResponse> {
+  return validateBatchResponseEnvelope(
+    value,
+    "serviceWorker",
+    "processor.transliteration.batch.response",
+  ) as ValidationResult<ProcessorBatchResponse>;
+}
+
+export function validateTransliterationBatchResponse(
+  value: unknown,
+  target: "popup" | "content",
+): ValidationResult<TransliterationBatchResponse> {
+  return validateBatchResponseEnvelope(
+    value,
+    target,
+    "transliteration.batch.response",
+  ) as ValidationResult<TransliterationBatchResponse>;
+}
+
 function isBtbError(value: unknown): value is BtbError {
   return (
     isRecord(value) &&
@@ -284,7 +426,9 @@ export function validateHealthErrorResponse(
   const requestId = requestIdFrom(value);
   if (
     !hasProtocol(value) ||
-    (value.target !== "popup" && value.target !== "serviceWorker") ||
+    (value.target !== "popup" &&
+      value.target !== "content" &&
+      value.target !== "serviceWorker") ||
     value.type !== "health.error" ||
     !isBtbError(value.error) ||
     value.requestId !== value.error.requestId

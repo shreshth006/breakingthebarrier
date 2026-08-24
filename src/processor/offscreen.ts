@@ -1,34 +1,49 @@
-import { PROCESSOR_PROBE_TIMEOUT_MS } from "../shared/config";
+import {
+  PROCESSOR_BATCH_TIMEOUT_MS,
+  PROCESSOR_PROBE_TIMEOUT_MS,
+} from "../shared/config";
 import { createBtbError } from "../shared/errors";
 import {
   createHealthErrorResponse,
+  createProcessorBatchResponse,
   createProcessorProbeResponse,
 } from "../shared/messages";
 import type {
   HealthErrorResponse,
+  ProcessorBatchRequest,
+  ProcessorBatchResponse,
   ProcessorProbeRequest,
   ProcessorProbeResponse,
 } from "../shared/messages";
 import {
   getMessageTarget,
+  validateProcessorBatchRequest,
   validateProcessorProbeRequest,
 } from "../shared/validation";
 import {
+  createJapaneseWorkerBatchRequest,
   createJapaneseWorkerProbeRequest,
+  isJapaneseWorkerBatchFailure,
+  isJapaneseWorkerBatchResponse,
   isJapaneseWorkerProbeFailure,
   isJapaneseWorkerProbeResponse,
 } from "../shared/worker-messages";
-import type { JapaneseWorkerProbeResponse } from "../shared/worker-messages";
+import type {
+  JapaneseWorkerBatchResponse,
+  JapaneseWorkerProbeResponse,
+} from "../shared/worker-messages";
 import type { BtbCauseCategory } from "../shared/errors";
+import { resultsMatchRequests } from "../shared/transliteration-validation";
+import { runWithOneRetry } from "./retry";
 
 let japaneseWorker: Worker | undefined;
 
-class JapaneseWorkerProbeError extends Error {
+class JapaneseWorkerRequestError extends Error {
   readonly reason: BtbCauseCategory;
 
   constructor(reason: BtbCauseCategory) {
-    super(`Japanese worker probe failed: ${reason}`);
-    this.name = "JapaneseWorkerProbeError";
+    super(`Japanese worker request failed: ${reason}`);
+    this.name = "JapaneseWorkerRequestError";
     this.reason = reason;
   }
 }
@@ -55,7 +70,7 @@ function probeJapaneseWorker(
     const timeoutId = setTimeout(() => {
       cleanup();
       resetJapaneseWorker();
-      reject(new JapaneseWorkerProbeError("timeout"));
+      reject(new JapaneseWorkerRequestError("timeout"));
     }, PROCESSOR_PROBE_TIMEOUT_MS);
 
     const handleMessage = (event: MessageEvent<unknown>): void => {
@@ -71,14 +86,14 @@ function probeJapaneseWorker(
       ) {
         cleanup();
         resetJapaneseWorker();
-        reject(new JapaneseWorkerProbeError(event.data.reason));
+        reject(new JapaneseWorkerRequestError(event.data.reason));
       }
     };
 
     const handleError = (): void => {
       cleanup();
       resetJapaneseWorker();
-      reject(new JapaneseWorkerProbeError("worker"));
+      reject(new JapaneseWorkerRequestError("worker"));
     };
 
     function cleanup(): void {
@@ -93,6 +108,66 @@ function probeJapaneseWorker(
   });
 }
 
+function requestJapaneseWorkerBatch(
+  request: ProcessorBatchRequest,
+): Promise<JapaneseWorkerBatchResponse> {
+  const worker = getJapaneseWorker();
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resetJapaneseWorker();
+      reject(new JapaneseWorkerRequestError("timeout"));
+    }, PROCESSOR_BATCH_TIMEOUT_MS);
+
+    const handleMessage = (event: MessageEvent<unknown>): void => {
+      if (
+        isJapaneseWorkerBatchResponse(event.data) &&
+        event.data.requestId === request.requestId
+      ) {
+        cleanup();
+        if (!resultsMatchRequests(request.items, event.data.results)) {
+          resetJapaneseWorker();
+          reject(new JapaneseWorkerRequestError("worker"));
+          return;
+        }
+        resolve(event.data);
+      } else if (
+        isJapaneseWorkerBatchFailure(event.data) &&
+        event.data.requestId === request.requestId
+      ) {
+        cleanup();
+        resetJapaneseWorker();
+        reject(new JapaneseWorkerRequestError(event.data.reason));
+      }
+    };
+
+    const handleError = (): void => {
+      cleanup();
+      resetJapaneseWorker();
+      reject(new JapaneseWorkerRequestError("worker"));
+    };
+
+    function cleanup(): void {
+      clearTimeout(timeoutId);
+      worker.removeEventListener("message", handleMessage);
+      worker.removeEventListener("error", handleError);
+    }
+
+    worker.addEventListener("message", handleMessage);
+    worker.addEventListener("error", handleError);
+    worker.postMessage(
+      createJapaneseWorkerBatchRequest(request.requestId, request.items),
+    );
+  });
+}
+
+async function requestJapaneseWorkerBatchWithRetry(
+  request: ProcessorBatchRequest,
+): Promise<JapaneseWorkerBatchResponse> {
+  return runWithOneRetry(() => requestJapaneseWorkerBatch(request));
+}
+
 async function handleProcessorProbe(
   request: ProcessorProbeRequest,
 ): Promise<ProcessorProbeResponse | HealthErrorResponse> {
@@ -101,11 +176,33 @@ async function handleProcessorProbe(
     return createProcessorProbeResponse(request.requestId, workerResponse);
   } catch (error) {
     const reason =
-      error instanceof JapaneseWorkerProbeError ? error.reason : "worker";
+      error instanceof JapaneseWorkerRequestError ? error.reason : "worker";
     return createHealthErrorResponse(
       "serviceWorker",
       createBtbError(
         reason === "timeout" ? "worker-timeout" : "worker-unavailable",
+        "worker",
+        reason,
+        true,
+        request.requestId,
+      ),
+    );
+  }
+}
+
+async function handleProcessorBatch(
+  request: ProcessorBatchRequest,
+): Promise<ProcessorBatchResponse | HealthErrorResponse> {
+  try {
+    const response = await requestJapaneseWorkerBatchWithRetry(request);
+    return createProcessorBatchResponse(request.requestId, response.results);
+  } catch (error) {
+    const reason =
+      error instanceof JapaneseWorkerRequestError ? error.reason : "worker";
+    return createHealthErrorResponse(
+      "serviceWorker",
+      createBtbError(
+        reason === "timeout" ? "worker-timeout" : "transliteration-failed",
         "worker",
         reason,
         true,
@@ -125,22 +222,33 @@ chrome.runtime.onMessage.addListener(
       return false;
     }
 
-    const request = validateProcessorProbeRequest(message);
-    if (!request.ok || sender.id !== chrome.runtime.id) {
-      const error = request.ok
+    const probeRequest = validateProcessorProbeRequest(message);
+    const batchRequest = validateProcessorBatchRequest(message);
+    const validRequest = probeRequest.ok || batchRequest.ok;
+    if (!validRequest || sender.id !== chrome.runtime.id) {
+      const requestId = probeRequest.ok
+        ? probeRequest.value.requestId
+        : batchRequest.ok
+          ? batchRequest.value.requestId
+          : null;
+      const error = validRequest
         ? createBtbError(
             "invalid-sender",
             "messaging",
             "boundary",
             false,
-            request.value.requestId,
+            requestId,
           )
-        : request.error;
+        : probeRequest.error;
       sendResponse(createHealthErrorResponse("serviceWorker", error));
       return false;
     }
 
-    void handleProcessorProbe(request.value).then(sendResponse);
+    if (probeRequest.ok) {
+      void handleProcessorProbe(probeRequest.value).then(sendResponse);
+    } else if (batchRequest.ok) {
+      void handleProcessorBatch(batchRequest.value).then(sendResponse);
+    }
     return true;
   },
 );

@@ -1,5 +1,24 @@
 import { PROTOCOL_VERSION } from "./config";
 import type { ProcessorProbeDetails } from "./messages";
+import type {
+  TransliterationRequest,
+  TransliterationResult,
+} from "../engines/contracts";
+import {
+  readTransliterationRequests,
+  readTransliterationResults,
+} from "./transliteration-validation";
+
+export type JapaneseWorkerFailureReason =
+  | "engine-module"
+  | "engine-load"
+  | "dictionary-fetch"
+  | "dictionary-schema"
+  | "wasm-compile"
+  | "wasm-link"
+  | "wasm-runtime"
+  | "self-test"
+  | "transliteration";
 
 export interface JapaneseWorkerProbeRequest {
   readonly protocolVersion: typeof PROTOCOL_VERSION;
@@ -17,15 +36,28 @@ export interface JapaneseWorkerProbeFailure {
   readonly protocolVersion: typeof PROTOCOL_VERSION;
   readonly type: "worker.probe.failure";
   readonly requestId: string;
-  readonly reason:
-    | "engine-module"
-    | "engine-load"
-    | "dictionary-fetch"
-    | "dictionary-schema"
-    | "wasm-compile"
-    | "wasm-link"
-    | "wasm-runtime"
-    | "self-test";
+  readonly reason: Exclude<JapaneseWorkerFailureReason, "transliteration">;
+}
+
+export interface JapaneseWorkerBatchRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly type: "worker.transliteration.batch.request";
+  readonly requestId: string;
+  readonly items: readonly TransliterationRequest[];
+}
+
+export interface JapaneseWorkerBatchResponse {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly type: "worker.transliteration.batch.response";
+  readonly requestId: string;
+  readonly results: readonly TransliterationResult[];
+}
+
+export interface JapaneseWorkerBatchFailure {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly type: "worker.transliteration.batch.failure";
+  readonly requestId: string;
+  readonly reason: JapaneseWorkerFailureReason;
 }
 
 export function createJapaneseWorkerProbeRequest(
@@ -57,6 +89,42 @@ export function createJapaneseWorkerProbeFailure(
   return {
     protocolVersion: PROTOCOL_VERSION,
     type: "worker.probe.failure",
+    requestId,
+    reason,
+  };
+}
+
+export function createJapaneseWorkerBatchRequest(
+  requestId: string,
+  items: readonly TransliterationRequest[],
+): JapaneseWorkerBatchRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    type: "worker.transliteration.batch.request",
+    requestId,
+    items,
+  };
+}
+
+export function createJapaneseWorkerBatchResponse(
+  requestId: string,
+  results: readonly TransliterationResult[],
+): JapaneseWorkerBatchResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    type: "worker.transliteration.batch.response",
+    requestId,
+    results,
+  };
+}
+
+export function createJapaneseWorkerBatchFailure(
+  requestId: string,
+  reason: JapaneseWorkerFailureReason,
+): JapaneseWorkerBatchFailure {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    type: "worker.transliteration.batch.failure",
     requestId,
     reason,
   };
@@ -102,14 +170,66 @@ export function isJapaneseWorkerProbeResponse(
     typeof value.versions.wanakana === "string" &&
     typeof value.versions.dictionary === "string" &&
     typeof value.versions.romanizationPolicy === "string" &&
-    typeof value.versions.spacingPolicy === "string"
-    && typeof value.measurements.coldReadyMs === "number"
-    && Number.isFinite(value.measurements.coldReadyMs)
-    && value.measurements.coldReadyMs >= 0
-    && value.measurements.warmBatchItems === 100
-    && typeof value.measurements.warmBatchMs === "number"
-    && Number.isFinite(value.measurements.warmBatchMs)
-    && value.measurements.warmBatchMs >= 0
+    typeof value.versions.spacingPolicy === "string" &&
+    typeof value.measurements.coldReadyMs === "number" &&
+    Number.isFinite(value.measurements.coldReadyMs) &&
+    value.measurements.coldReadyMs >= 0 &&
+    value.measurements.warmBatchItems === 100 &&
+    typeof value.measurements.warmBatchMs === "number" &&
+    Number.isFinite(value.measurements.warmBatchMs) &&
+    value.measurements.warmBatchMs >= 0
+  );
+}
+
+export function isJapaneseWorkerBatchRequest(
+  value: unknown,
+): value is JapaneseWorkerBatchRequest {
+  return (
+    isRecord(value) &&
+    value.protocolVersion === PROTOCOL_VERSION &&
+    value.type === "worker.transliteration.batch.request" &&
+    typeof value.requestId === "string" &&
+    readTransliterationRequests(value.items) !== null
+  );
+}
+
+export function isJapaneseWorkerBatchResponse(
+  value: unknown,
+): value is JapaneseWorkerBatchResponse {
+  return (
+    isRecord(value) &&
+    value.protocolVersion === PROTOCOL_VERSION &&
+    value.type === "worker.transliteration.batch.response" &&
+    typeof value.requestId === "string" &&
+    readTransliterationResults(value.results) !== null
+  );
+}
+
+function isWorkerFailureReason(
+  value: unknown,
+): value is JapaneseWorkerFailureReason {
+  return (
+    value === "engine-module" ||
+    value === "engine-load" ||
+    value === "dictionary-fetch" ||
+    value === "dictionary-schema" ||
+    value === "wasm-compile" ||
+    value === "wasm-link" ||
+    value === "wasm-runtime" ||
+    value === "self-test" ||
+    value === "transliteration"
+  );
+}
+
+export function isJapaneseWorkerBatchFailure(
+  value: unknown,
+): value is JapaneseWorkerBatchFailure {
+  return (
+    isRecord(value) &&
+    value.protocolVersion === PROTOCOL_VERSION &&
+    value.type === "worker.transliteration.batch.failure" &&
+    typeof value.requestId === "string" &&
+    isWorkerFailureReason(value.reason)
   );
 }
 

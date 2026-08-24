@@ -3,7 +3,8 @@ export type BtbErrorCode =
   | "invalid-sender"
   | "processor-unavailable"
   | "worker-timeout"
-  | "worker-unavailable";
+  | "worker-unavailable"
+  | "transliteration-failed";
 
 export type BtbSubsystem =
   | "messaging"
@@ -25,6 +26,7 @@ export type BtbCauseCategory =
   | "wasm-compile"
   | "wasm-link"
   | "wasm-runtime"
+  | "transliteration"
   | "self-test";
 
 export interface BtbError {

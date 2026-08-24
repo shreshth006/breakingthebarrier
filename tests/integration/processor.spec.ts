@@ -2,9 +2,22 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium, expect, test } from "@playwright/test";
 import type { CDPSession } from "@playwright/test";
+import type {
+  HealthErrorResponse,
+  TransliterationBatchResponse,
+} from "../../src/shared/messages";
 
 const projectRoot = resolve(import.meta.dirname, "../..");
 const extensionPath = resolve(projectRoot, "dist");
+const dictionaryCases = [
+  { source: "星座になれたら", expected: "seiza ni naretara" },
+  { source: "愛してる", expected: "aishiteru" },
+  { source: "東京", expected: "toukyou" },
+  { source: "龘", expected: "龘" },
+  { source: "私は東京へ行く。", expected: "watashi wa toukyou e iku。" },
+  { source: "山田太郎", expected: "yamada tarou" },
+  { source: "ABC東京123", expected: "ABCtoukyou123" },
+] as const;
 
 async function readBrowserPssMiB(session: CDPSession): Promise<number> {
   const { processInfo } = await session.send("SystemInfo.getProcessInfo");
@@ -117,6 +130,74 @@ test("packaged popup starts the local Lindera worker", async () => {
     expect(measurements.warmBatchMs).toBeLessThanOrEqual(100);
     expect(memory.observedPeakDeltaMiB).toBeGreaterThan(0);
     expect(memory.steadyDeltaMiB).toBeGreaterThan(0);
+
+    const batchResponse = await popup.evaluate(async (cases) => {
+      const requestId = crypto.randomUUID();
+      const response: unknown = await chrome.runtime.sendMessage({
+        protocolVersion: 1,
+        target: "serviceWorker",
+        type: "transliteration.batch.request",
+        requestId,
+        items: cases.map(({ source }, index) => ({
+          itemId: String(index),
+          source,
+          language: "ja",
+          romanizationPolicy: "ascii-hepburn-v1",
+        })),
+      });
+      return response as TransliterationBatchResponse;
+    }, dictionaryCases);
+    expect(batchResponse).toMatchObject({
+      protocolVersion: 1,
+      target: "content",
+      type: "transliteration.batch.response",
+    });
+    expect(batchResponse.results).toHaveLength(dictionaryCases.length);
+    for (const [index, expected] of dictionaryCases.entries()) {
+      const result = batchResponse.results[index];
+      if (result === undefined) {
+        throw new Error(`Missing transliteration result ${String(index)}`);
+      }
+      expect(result).toMatchObject({
+        itemId: String(index),
+        source: expected.source,
+        rendered: expected.expected,
+        versions: {
+          engine: "5.3.0",
+          dictionary: "5.3.0",
+          romanizationPolicy: "ascii-hepburn-v1",
+          spacingPolicy: "japanese-spacing-v1",
+        },
+      });
+      expect(result.segments.map((segment) => segment.source).join("")).toBe(
+        expected.source,
+      );
+    }
+
+    const invalidResponse = await popup.evaluate(async () => {
+      const requestId = crypto.randomUUID();
+      const response: unknown = await chrome.runtime.sendMessage({
+        protocolVersion: 1,
+        target: "serviceWorker",
+        type: "transliteration.batch.request",
+        requestId,
+        items: Array.from({ length: 101 }, (_, index) => ({
+          itemId: String(index),
+          source: "東京",
+          language: "ja",
+          romanizationPolicy: "ascii-hepburn-v1",
+        })),
+      });
+      return response as HealthErrorResponse;
+    });
+    expect(invalidResponse).toMatchObject({
+      target: "content",
+      type: "health.error",
+      error: {
+        code: "invalid-message",
+        retryable: false,
+      },
+    });
 
     await popup.getByRole("button", { name: "Check local processor" }).click();
 

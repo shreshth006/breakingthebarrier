@@ -13,8 +13,11 @@ import {
 } from "../engines/japanese/ipadic-schema";
 import { JAPANESE_SPACING_POLICY_VERSION } from "../engines/japanese/spacing";
 import {
+  createJapaneseWorkerBatchFailure,
+  createJapaneseWorkerBatchResponse,
   createJapaneseWorkerProbeFailure,
   createJapaneseWorkerProbeResponse,
+  isJapaneseWorkerBatchRequest,
   isJapaneseWorkerProbeRequest,
 } from "../shared/worker-messages";
 import type { JapaneseWorkerProbeFailure } from "../shared/worker-messages";
@@ -131,12 +134,18 @@ async function createJapaneseEngine(): Promise<LoadedJapaneseEngine> {
     unknownWords,
   );
 
+  const metadataHandle = dictionary.metadata;
   try {
-    assertIpadicSchema(
-      dictionary.metadata.dictionary_schema.get_all_fields(),
-    );
+    const schemaHandle = metadataHandle.dictionary_schema;
+    try {
+      assertIpadicSchema(schemaHandle.get_all_fields());
+    } finally {
+      schemaHandle.free();
+    }
   } catch {
     throw new EngineLoadError("dictionary-schema");
+  } finally {
+    metadataHandle.free();
   }
 
   const builder = new lindera.TokenizerBuilder();
@@ -148,8 +157,12 @@ async function createJapaneseEngine(): Promise<LoadedJapaneseEngine> {
     {
       tokenize(source: string): readonly LinderaTokenData[] {
         return tokenizer.tokenize(source).map((token) => {
-          const value: unknown = token.toJSON();
-          return value as LinderaTokenData;
+          try {
+            const value: unknown = token.toJSON();
+            return value as LinderaTokenData;
+          } finally {
+            token.free();
+          }
         });
       },
     },
@@ -207,6 +220,27 @@ function getJapaneseEngine(): Promise<LoadedJapaneseEngine> {
 }
 
 workerScope.addEventListener("message", (event: MessageEvent<unknown>) => {
+  if (isJapaneseWorkerBatchRequest(event.data)) {
+    const request = event.data;
+    void getJapaneseEngine()
+      .then(({ adapter }) => adapter.transliterate(request.items))
+      .then((results) => {
+        workerScope.postMessage(
+          createJapaneseWorkerBatchResponse(request.requestId, results),
+        );
+      })
+      .catch((error: unknown) => {
+        const reason = classifyEngineLoadFailure(error);
+        workerScope.postMessage(
+          createJapaneseWorkerBatchFailure(
+            request.requestId,
+            reason === "engine-load" ? "transliteration" : reason,
+          ),
+        );
+      });
+    return;
+  }
+
   if (!isJapaneseWorkerProbeRequest(event.data)) {
     return;
   }

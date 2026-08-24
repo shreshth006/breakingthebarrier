@@ -1,12 +1,51 @@
 import { describe, expect, it } from "vitest";
 import {
+  createJapaneseWorkerBatchFailure,
+  createJapaneseWorkerBatchRequest,
+  createJapaneseWorkerBatchResponse,
   createJapaneseWorkerProbeRequest,
   createJapaneseWorkerProbeFailure,
   createJapaneseWorkerProbeResponse,
+  isJapaneseWorkerBatchFailure,
+  isJapaneseWorkerBatchRequest,
+  isJapaneseWorkerBatchResponse,
   isJapaneseWorkerProbeRequest,
   isJapaneseWorkerProbeFailure,
   isJapaneseWorkerProbeResponse,
 } from "../../src/shared/worker-messages";
+
+const items = [
+  {
+    itemId: "title",
+    source: "東京",
+    language: "ja",
+    romanizationPolicy: "ascii-hepburn-v1",
+  },
+] as const;
+
+const results = [
+  {
+    itemId: "title",
+    source: "東京",
+    rendered: "toukyou",
+    segments: [
+      {
+        start: 0,
+        end: 2,
+        source: "東京",
+        reading: "トウキョウ",
+        romanized: "toukyou",
+      },
+    ],
+    warnings: [],
+    versions: {
+      engine: "5.3.0",
+      dictionary: "5.3.0",
+      romanizationPolicy: "ascii-hepburn-v1",
+      spacingPolicy: "japanese-spacing-v1",
+    },
+  },
+] as const;
 
 describe("Japanese worker messages", () => {
   it("accepts the internal probe request", () => {
@@ -51,5 +90,36 @@ describe("Japanese worker messages", () => {
         createJapaneseWorkerProbeFailure("probe-1", "engine-load"),
       ),
     ).toBe(true);
+  });
+
+  it("accepts validated internal batch envelopes", () => {
+    expect(
+      isJapaneseWorkerBatchRequest(
+        createJapaneseWorkerBatchRequest("batch-1", items),
+      ),
+    ).toBe(true);
+    expect(
+      isJapaneseWorkerBatchResponse(
+        createJapaneseWorkerBatchResponse("batch-1", results),
+      ),
+    ).toBe(true);
+    expect(
+      isJapaneseWorkerBatchFailure(
+        createJapaneseWorkerBatchFailure("batch-1", "transliteration"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a batch response whose segments do not match its source", () => {
+    expect(
+      isJapaneseWorkerBatchResponse(
+        createJapaneseWorkerBatchResponse("batch-1", [
+          {
+            ...results[0],
+            segments: [{ ...results[0].segments[0], source: "大阪" }],
+          },
+        ]),
+      ),
+    ).toBe(false);
   });
 });
