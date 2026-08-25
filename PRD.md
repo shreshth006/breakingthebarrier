@@ -1,8 +1,8 @@
 # Breaking the Barrier — Product Requirements Document
 
 - **Document status:** Planning baseline 1.1
-- **Last updated:** 2026-08-24
-- **Implementation status:** Phase 0 in progress
+- **Last updated:** 2026-08-26
+- **Implementation status:** Phase 0 complete; Phase 1 ready to start
 
 ## 1. Product overview
 
@@ -239,7 +239,16 @@ Targets are validated on an agreed mid-tier reference laptop and representative 
 - Initial scanning must yield between bounded work slices and must not create a single long task over 50 ms in the 5,000-node fixture.
 - Japanese engine assets should remain at or below 25 MiB compressed in the packaged extension unless measurements and user value justify an explicit exception.
 - Japanese cold readiness should target 2 seconds or less and warm transliteration of 100 short strings should target 100 ms or less on the reference device.
-- Loaded Japanese processing should target less than 150 MiB incremental memory. Phase 0 must measure real peak and steady-state values.
+- The original loaded-Japanese planning target was less than 150 MiB
+  incremental memory. Phase 0 measured Lindera/IPADIC above that target and
+  accepted an evidence-backed initial implementation exception of at most
+  180 MiB incremental Linux PSS while the processor is loaded on the reference
+  Chromium/Linux environment. The processor remains lazy and must be releasable
+  when no active session needs it.
+- Phase 1 page-side DOM bookkeeping, bounded caches, and queues must add no more
+  than 20 MiB persistent extension-side memory on the agreed representative
+  fixture, measured separately from the loaded Japanese processor baseline,
+  unless a new documented exception is approved.
 - All caches are bounded and cleared when their owning worker or tab session ends.
 
 ### 10.3 Reliability
@@ -270,7 +279,7 @@ Targets are validated on an agreed mid-tier reference laptop and representative 
 
 ## 11. Browser strategy
 
-The MVP targets current Chromium-family desktop browsers: Chrome first, with Edge and Brave expected to work from the same Manifest V3 build where their APIs match. The planned minimum Chromium version is 109 because the selected reusable processor host depends on `chrome.offscreen`; Phase 0 must confirm whether a higher minimum is needed by the chosen WASM build.
+The MVP targets current Chromium-family desktop browsers: Chrome first, with Edge and Brave expected to work from the same Manifest V3 build where their APIs match. The minimum Chromium version is 109 because the selected reusable processor host depends on `chrome.offscreen`; Phase 0 confirmed the chosen WASM build and packaged worker path under that manifest target.
 
 Portable WebExtension concepts and a small browser API adapter should be used where the cost is low. Firefox packaging and QA are later scope because Firefox still differs in background execution and does not provide Chrome's offscreen API. Cross-browser support must not weaken the Chromium MVP.
 
@@ -439,7 +448,11 @@ Questions marked **Experiment** do not block Phase 0. Questions marked **Product
 
 - **Product input:** Are Spotify and YouTube named launch acceptance targets on their real production sites, or representative dynamic-site validation targets backed primarily by stable local fixtures? Real-site acceptance implies account/test-environment maintenance and site-change risk.
 - **Product input:** The brief's examples imply ASCII output such as `toukyou`; confirm that this should remain the default over macrons such as `Tōkyō`. The architecture currently chooses ASCII Hepburn.
-- **Experiment:** Does Lindera WASM plus bundled IPADIC meet package, cold-start, warm-latency, memory, Manifest V3 CSP, and Chrome Web Store requirements?
+- **Resolved 2026-08-26:** Lindera WASM plus bundled IPADIC passed package,
+  cold-start, warm-latency, offline, and Manifest V3 CSP gates. It failed the
+  original memory target and was accepted under the documented at-most-180 MiB
+  loaded-processor exception. Store submission itself remains a release-stage
+  operational check.
 - **Experiment:** What reading accuracy does IPADIC achieve on a curated corpus of current artist names, song titles, and lyrics, and does a small product dictionary materially improve it?
 - **Experiment:** Which CSS visibility policy gives the best balance between avoiding hidden text and avoiding layout work or missed class-driven reveals?
 - **Experiment:** How often do target sites expose lyrics/subtitles as DOM text versus canvas or protected pixels?

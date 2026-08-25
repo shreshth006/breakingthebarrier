@@ -12,12 +12,20 @@ import {
   IPADIC_DICTIONARY_VERSION,
 } from "../engines/japanese/ipadic-schema";
 import { JAPANESE_SPACING_POLICY_VERSION } from "../engines/japanese/spacing";
+import { PROCESSOR_MEMORY_DIAGNOSTIC_STAGE_PAUSE_MS } from "../shared/config";
+import type {
+  ProcessorMemoryStage,
+  ProcessorProbeDetails,
+} from "../shared/messages";
 import {
   createJapaneseWorkerBatchFailure,
   createJapaneseWorkerBatchResponse,
+  createJapaneseWorkerMemoryDiagnosticResponse,
+  createJapaneseWorkerMemoryStageEvent,
   createJapaneseWorkerProbeFailure,
   createJapaneseWorkerProbeResponse,
   isJapaneseWorkerBatchRequest,
+  isJapaneseWorkerMemoryDiagnosticRequest,
   isJapaneseWorkerProbeRequest,
 } from "../shared/worker-messages";
 import type { JapaneseWorkerProbeFailure } from "../shared/worker-messages";
@@ -57,6 +65,25 @@ interface LoadedJapaneseEngine {
 
 let enginePromise: Promise<LoadedJapaneseEngine> | undefined;
 
+type MemoryStageReporter = (stage: ProcessorMemoryStage) => Promise<void>;
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolveDelay) => {
+    setTimeout(resolveDelay, milliseconds);
+  });
+}
+
+function requireDictionaryFile(
+  files: readonly Uint8Array[],
+  index: number,
+): Uint8Array {
+  const file = files[index];
+  if (file === undefined) {
+    throw new EngineLoadError("dictionary-fetch");
+  }
+  return file;
+}
+
 function classifyEngineLoadFailure(error: unknown): EngineLoadFailureReason {
   if (error instanceof EngineLoadError) {
     return error.reason;
@@ -91,48 +118,29 @@ async function fetchDictionaryFile(name: string): Promise<Uint8Array> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
-async function createJapaneseEngine(): Promise<LoadedJapaneseEngine> {
-  const [lindera, files] = await Promise.all([
-    import("lindera-wasm-bundler"),
-    Promise.all(DICTIONARY_FILE_NAMES.map(fetchDictionaryFile)),
-  ]);
-
-  const [
-    metadata,
-    dictTrie,
-    dictValsIndex,
-    dictVals,
-    dictWordsIndex,
-    dictWords,
-    matrix,
-    characterDefinitions,
-    unknownWords,
-  ] = files;
-  if (
-    metadata === undefined ||
-    dictTrie === undefined ||
-    dictValsIndex === undefined ||
-    dictVals === undefined ||
-    dictWordsIndex === undefined ||
-    dictWords === undefined ||
-    matrix === undefined ||
-    characterDefinitions === undefined ||
-    unknownWords === undefined
-  ) {
-    throw new EngineLoadError("dictionary-fetch");
-  }
+async function createJapaneseEngine(
+  reportStage: MemoryStageReporter = () => Promise.resolve(),
+): Promise<LoadedJapaneseEngine> {
+  await reportStage("worker-created");
+  const lindera = await import("lindera-wasm-bundler");
+  await reportStage("wasm-initialized");
+  const files = await Promise.all(
+    DICTIONARY_FILE_NAMES.map(fetchDictionaryFile),
+  );
+  await reportStage("dictionary-files-fetched");
 
   const dictionary = lindera.loadDictionaryFromBytes(
-    metadata,
-    dictTrie,
-    dictValsIndex,
-    dictVals,
-    dictWordsIndex,
-    dictWords,
-    matrix,
-    characterDefinitions,
-    unknownWords,
+    requireDictionaryFile(files, 0),
+    requireDictionaryFile(files, 1),
+    requireDictionaryFile(files, 2),
+    requireDictionaryFile(files, 3),
+    requireDictionaryFile(files, 4),
+    requireDictionaryFile(files, 5),
+    requireDictionaryFile(files, 6),
+    requireDictionaryFile(files, 7),
+    requireDictionaryFile(files, 8),
   );
+  await reportStage("dictionary-constructed");
 
   const metadataHandle = dictionary.metadata;
   try {
@@ -153,6 +161,14 @@ async function createJapaneseEngine(): Promise<LoadedJapaneseEngine> {
   builder.setMode("normal");
   builder.setKeepWhitespace(true);
   const tokenizer = builder.build();
+  await reportStage("tokenizer-constructed");
+
+  // wasm-bindgen copies each file into WASM memory. Drop the corresponding
+  // JavaScript ArrayBuffer references as soon as the tokenizer owns the
+  // dictionary so they become eligible for collection before self-tests.
+  files.length = 0;
+  await reportStage("temporary-buffers-released");
+
   const adapter = new JapaneseLinderaAdapter(
     {
       tokenize(source: string): readonly LinderaTokenData[] {
@@ -199,6 +215,8 @@ async function createJapaneseEngine(): Promise<LoadedJapaneseEngine> {
     throw new EngineLoadError("self-test");
   }
   const warmBatchMs = performance.now() - warmBatchStartedAt;
+  await reportStage("batch-completed");
+  await reportStage("stabilized");
 
   return {
     adapter,
@@ -211,15 +229,65 @@ async function createJapaneseEngine(): Promise<LoadedJapaneseEngine> {
   };
 }
 
-function getJapaneseEngine(): Promise<LoadedJapaneseEngine> {
-  enginePromise ??= createJapaneseEngine().catch((error: unknown) => {
+function getJapaneseEngine(
+  reportStage?: MemoryStageReporter,
+): Promise<LoadedJapaneseEngine> {
+  enginePromise ??= createJapaneseEngine(reportStage).catch((error: unknown) => {
     enginePromise = undefined;
     throw error;
   });
   return enginePromise;
 }
 
+function toProbeDetails(engine: LoadedJapaneseEngine): ProcessorProbeDetails {
+  return {
+    status: "ready",
+    capabilities: [
+      "lindera-wasm",
+      "ipadic-tokenizer",
+      "kana-romanizer",
+    ],
+    versions: {
+      lindera: engine.linderaVersion,
+      wanakana: WANAKANA_VERSION,
+      dictionary: IPADIC_DICTIONARY_VERSION,
+      romanizationPolicy: ASCII_HEPBURN_POLICY_VERSION,
+      spacingPolicy: JAPANESE_SPACING_POLICY_VERSION,
+    },
+    measurements: engine.measurements,
+    selfTestPassed: true,
+  };
+}
+
 workerScope.addEventListener("message", (event: MessageEvent<unknown>) => {
+  if (isJapaneseWorkerMemoryDiagnosticRequest(event.data)) {
+    const request = event.data;
+    const reportStage: MemoryStageReporter = async (stage) => {
+      workerScope.postMessage(
+        createJapaneseWorkerMemoryStageEvent(request.requestId, stage),
+      );
+      await delay(PROCESSOR_MEMORY_DIAGNOSTIC_STAGE_PAUSE_MS);
+    };
+    void getJapaneseEngine(reportStage)
+      .then((engine) => {
+        workerScope.postMessage(
+          createJapaneseWorkerMemoryDiagnosticResponse(
+            request.requestId,
+            toProbeDetails(engine),
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        workerScope.postMessage(
+          createJapaneseWorkerProbeFailure(
+            request.requestId,
+            classifyEngineLoadFailure(error),
+          ),
+        );
+      });
+    return;
+  }
+
   if (isJapaneseWorkerBatchRequest(event.data)) {
     const request = event.data;
     void getJapaneseEngine()
@@ -247,25 +315,12 @@ workerScope.addEventListener("message", (event: MessageEvent<unknown>) => {
   const request = event.data;
 
   void getJapaneseEngine()
-    .then(({ linderaVersion, measurements }) => {
+    .then((engine) => {
       workerScope.postMessage(
-        createJapaneseWorkerProbeResponse(request.requestId, {
-          status: "ready",
-          capabilities: [
-            "lindera-wasm",
-            "ipadic-tokenizer",
-            "kana-romanizer",
-          ],
-          versions: {
-            lindera: linderaVersion,
-            wanakana: WANAKANA_VERSION,
-            dictionary: IPADIC_DICTIONARY_VERSION,
-            romanizationPolicy: ASCII_HEPBURN_POLICY_VERSION,
-            spacingPolicy: JAPANESE_SPACING_POLICY_VERSION,
-          },
-          measurements,
-          selfTestPassed: true,
-        }),
+        createJapaneseWorkerProbeResponse(
+          request.requestId,
+          toProbeDetails(engine),
+        ),
       );
     })
     .catch((error: unknown) => {

@@ -4,6 +4,7 @@ import {
 } from "../shared/config";
 import type {
   ProcessorBatchRequest,
+  ProcessorMemoryDiagnosticInternalRequest,
   ProcessorProbeRequest,
 } from "../shared/messages";
 
@@ -37,4 +38,18 @@ export async function sendProcessorBatch(
   request: ProcessorBatchRequest,
 ): Promise<unknown> {
   return chrome.runtime.sendMessage(request);
+}
+
+export async function sendProcessorMemoryDiagnostic(
+  request: ProcessorMemoryDiagnosticInternalRequest,
+): Promise<unknown> {
+  return chrome.runtime.sendMessage(request);
+}
+
+export async function releaseOffscreenDocument(): Promise<boolean> {
+  await offscreenCreation;
+  if (await chrome.offscreen.hasDocument()) {
+    await chrome.offscreen.closeDocument();
+  }
+  return !(await chrome.offscreen.hasDocument());
 }

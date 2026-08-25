@@ -1,5 +1,8 @@
 import { PROTOCOL_VERSION } from "./config";
-import type { ProcessorProbeDetails } from "./messages";
+import type {
+  ProcessorMemoryStage,
+  ProcessorProbeDetails,
+} from "./messages";
 import type {
   TransliterationRequest,
   TransliterationResult,
@@ -58,6 +61,26 @@ export interface JapaneseWorkerBatchFailure {
   readonly type: "worker.transliteration.batch.failure";
   readonly requestId: string;
   readonly reason: JapaneseWorkerFailureReason;
+}
+
+export interface JapaneseWorkerMemoryDiagnosticRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly type: "worker.memory.diagnostic";
+  readonly requestId: string;
+}
+
+export interface JapaneseWorkerMemoryDiagnosticResponse
+  extends ProcessorProbeDetails {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly type: "worker.memory.diagnostic.response";
+  readonly requestId: string;
+}
+
+export interface JapaneseWorkerMemoryStageEvent {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly type: "worker.memory.stage";
+  readonly requestId: string;
+  readonly stage: ProcessorMemoryStage;
 }
 
 export function createJapaneseWorkerProbeRequest(
@@ -130,8 +153,61 @@ export function createJapaneseWorkerBatchFailure(
   };
 }
 
+export function createJapaneseWorkerMemoryDiagnosticRequest(
+  requestId: string,
+): JapaneseWorkerMemoryDiagnosticRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    type: "worker.memory.diagnostic",
+    requestId,
+  };
+}
+
+export function createJapaneseWorkerMemoryDiagnosticResponse(
+  requestId: string,
+  details: ProcessorProbeDetails,
+): JapaneseWorkerMemoryDiagnosticResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    type: "worker.memory.diagnostic.response",
+    requestId,
+    status: details.status,
+    capabilities: details.capabilities,
+    versions: details.versions,
+    measurements: details.measurements,
+    selfTestPassed: details.selfTestPassed,
+  };
+}
+
+export function createJapaneseWorkerMemoryStageEvent(
+  requestId: string,
+  stage: ProcessorMemoryStage,
+): JapaneseWorkerMemoryStageEvent {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    type: "worker.memory.stage",
+    requestId,
+    stage,
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isProcessorMemoryStage(
+  value: unknown,
+): value is ProcessorMemoryStage {
+  return (
+    value === "worker-created" ||
+    value === "wasm-initialized" ||
+    value === "dictionary-files-fetched" ||
+    value === "dictionary-constructed" ||
+    value === "tokenizer-constructed" ||
+    value === "temporary-buffers-released" ||
+    value === "batch-completed" ||
+    value === "stabilized"
+  );
 }
 
 export function isJapaneseWorkerProbeRequest(
@@ -178,6 +254,42 @@ export function isJapaneseWorkerProbeResponse(
     typeof value.measurements.warmBatchMs === "number" &&
     Number.isFinite(value.measurements.warmBatchMs) &&
     value.measurements.warmBatchMs >= 0
+  );
+}
+
+export function isJapaneseWorkerMemoryDiagnosticRequest(
+  value: unknown,
+): value is JapaneseWorkerMemoryDiagnosticRequest {
+  return (
+    isRecord(value) &&
+    value.protocolVersion === PROTOCOL_VERSION &&
+    value.type === "worker.memory.diagnostic" &&
+    typeof value.requestId === "string"
+  );
+}
+
+export function isJapaneseWorkerMemoryDiagnosticResponse(
+  value: unknown,
+): value is JapaneseWorkerMemoryDiagnosticResponse {
+  return (
+    isJapaneseWorkerProbeResponse({
+      ...(isRecord(value) ? value : {}),
+      type: "worker.probe.response",
+    }) &&
+    isRecord(value) &&
+    value.type === "worker.memory.diagnostic.response"
+  );
+}
+
+export function isJapaneseWorkerMemoryStageEvent(
+  value: unknown,
+): value is JapaneseWorkerMemoryStageEvent {
+  return (
+    isRecord(value) &&
+    value.protocolVersion === PROTOCOL_VERSION &&
+    value.type === "worker.memory.stage" &&
+    typeof value.requestId === "string" &&
+    isProcessorMemoryStage(value.stage)
   );
 }
 

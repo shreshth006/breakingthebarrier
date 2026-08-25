@@ -3,12 +3,18 @@ import {
   createJapaneseWorkerBatchFailure,
   createJapaneseWorkerBatchRequest,
   createJapaneseWorkerBatchResponse,
+  createJapaneseWorkerMemoryDiagnosticRequest,
+  createJapaneseWorkerMemoryDiagnosticResponse,
+  createJapaneseWorkerMemoryStageEvent,
   createJapaneseWorkerProbeRequest,
   createJapaneseWorkerProbeFailure,
   createJapaneseWorkerProbeResponse,
   isJapaneseWorkerBatchFailure,
   isJapaneseWorkerBatchRequest,
   isJapaneseWorkerBatchResponse,
+  isJapaneseWorkerMemoryDiagnosticRequest,
+  isJapaneseWorkerMemoryDiagnosticResponse,
+  isJapaneseWorkerMemoryStageEvent,
   isJapaneseWorkerProbeRequest,
   isJapaneseWorkerProbeFailure,
   isJapaneseWorkerProbeResponse,
@@ -121,5 +127,34 @@ describe("Japanese worker messages", () => {
         ]),
       ),
     ).toBe(false);
+  });
+
+  it("validates memory diagnostic requests, stages, and responses", () => {
+    const request = createJapaneseWorkerMemoryDiagnosticRequest("memory-1");
+    const stage = createJapaneseWorkerMemoryStageEvent(
+      "memory-1",
+      "temporary-buffers-released",
+    );
+    const response = createJapaneseWorkerMemoryDiagnosticResponse("memory-1", {
+      status: "ready",
+      capabilities: ["lindera-wasm", "ipadic-tokenizer", "kana-romanizer"],
+      versions: {
+        lindera: "5.3.0",
+        wanakana: "5.3.1",
+        dictionary: "5.3.0",
+        romanizationPolicy: "ascii-hepburn-v1",
+        spacingPolicy: "japanese-spacing-v1",
+      },
+      measurements: {
+        coldReadyMs: 450,
+        warmBatchItems: 100,
+        warmBatchMs: 12,
+      },
+      selfTestPassed: true,
+    });
+
+    expect(isJapaneseWorkerMemoryDiagnosticRequest(request)).toBe(true);
+    expect(isJapaneseWorkerMemoryStageEvent(stage)).toBe(true);
+    expect(isJapaneseWorkerMemoryDiagnosticResponse(response)).toBe(true);
   });
 });

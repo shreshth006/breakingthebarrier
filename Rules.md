@@ -1,7 +1,7 @@
 # Breaking the Barrier — Engineering Rules
 
 - **Document status:** Planning baseline 1.1
-- **Last updated:** 2026-08-24
+- **Last updated:** 2026-08-26
 - **Applies to:** Human contributors and AI coding agents
 
 These rules protect the product thesis, page safety, privacy, and the implementation boundaries in `Architecture.md`. “Must” and “must not” are release requirements. Exceptions require an explicit written decision with evidence and corresponding documentation changes.
@@ -172,6 +172,8 @@ These rules are non-negotiable.
 - Avoid per-node layout geometry reads in normal Live Mode.
 - Yield between initial-scan and large-mutation work slices.
 - Measure against the budgets in `PRD.md`; do not declare performance acceptable based on subjective browsing alone.
+- Keep the accepted shared Japanese-processor budget separate from per-tab DOM,
+  cache, and queue memory. A processor exception may not hide page-side growth.
 - Do not optimize by weakening restoration, language correctness, privacy, or message validation.
 - A performance optimization that changes output or lifecycle semantics needs regression tests and a documented rationale.
 
@@ -247,8 +249,11 @@ Do not add a package for a trivial helper that can be expressed safely in a smal
 - Vitest and jsdom: approved unit/DOM test candidates.
 - Playwright: approved Chromium extension integration candidate.
 - ESLint and typescript-eslint: approved static-analysis candidates.
-- Lindera WASM bundler build plus matching IPADIC: conditionally approved only after the Phase 0 gate.
-- WanaKana: conditionally approved behind `ascii-hepburn-v1` after Phase 0 output and bundle review.
+- Lindera WASM bundler 5.3.0 plus matching IPADIC 5.3.0: approved by the
+  completed Phase 0 gate under Architecture decision D-12's loaded-memory
+  exception.
+- WanaKana 5.3.1: approved behind `ascii-hepburn-v1` by the completed Phase 0
+  output and bundle review.
 - Tesseract.js: not approved for installation until the Phase 5 OCR gate.
 
 “Approved candidate” does not mean any version is acceptable. The exact tested version is pinned in the first implementation lockfile and recorded in `Memory.md`.

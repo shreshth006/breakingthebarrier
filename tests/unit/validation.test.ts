@@ -9,7 +9,14 @@ import {
   createProcessorBatchResponse,
   createProcessorEnsureRequest,
   createProcessorEnsureResponse,
+  createProcessorMemoryDiagnosticInternalRequest,
+  createProcessorMemoryDiagnosticInternalResponse,
+  createProcessorMemoryDiagnosticRequest,
+  createProcessorMemoryDiagnosticResponse,
+  createProcessorMemoryStageEvent,
   createProcessorProbeResponse,
+  createProcessorReleaseRequest,
+  createProcessorReleaseResponse,
   createTransliterationBatchRequest,
   createTransliterationBatchResponse,
 } from "../../src/shared/messages";
@@ -20,6 +27,13 @@ import {
   validateProcessorBatchResponse,
   validateProcessorEnsureRequest,
   validateProcessorEnsureResponse,
+  validateProcessorMemoryDiagnosticInternalRequest,
+  validateProcessorMemoryDiagnosticInternalResponse,
+  validateProcessorMemoryDiagnosticRequest,
+  validateProcessorMemoryDiagnosticResponse,
+  validateProcessorMemoryStageEvent,
+  validateProcessorReleaseRequest,
+  validateProcessorReleaseResponse,
   validateTransliterationBatchRequest,
   validateTransliterationBatchResponse,
 } from "../../src/shared/validation";
@@ -173,6 +187,59 @@ describe("runtime message validation", () => {
     expect(
       validateTransliterationBatchResponse(callerResponse, "popup").ok,
     ).toBe(false);
+  });
+
+  it("validates memory diagnostics at each runtime boundary", () => {
+    const callerRequest = createProcessorMemoryDiagnosticRequest("memory-1");
+    const internalRequest =
+      createProcessorMemoryDiagnosticInternalRequest("memory-1");
+    const internalResponse = createProcessorMemoryDiagnosticInternalResponse(
+      "memory-1",
+      probeDetails,
+    );
+    const callerResponse = createProcessorMemoryDiagnosticResponse(
+      "content",
+      "memory-1",
+      probeDetails,
+    );
+    const stage = createProcessorMemoryStageEvent(
+      "memory-1",
+      "dictionary-constructed",
+    );
+
+    expect(validateProcessorMemoryDiagnosticRequest(callerRequest).ok).toBe(
+      true,
+    );
+    expect(
+      validateProcessorMemoryDiagnosticInternalRequest(internalRequest).ok,
+    ).toBe(true);
+    expect(
+      validateProcessorMemoryDiagnosticInternalResponse(internalResponse).ok,
+    ).toBe(true);
+    expect(
+      validateProcessorMemoryDiagnosticResponse(callerResponse, "content").ok,
+    ).toBe(true);
+    expect(validateProcessorMemoryStageEvent(stage)).toEqual({
+      ok: true,
+      value: stage,
+    });
+  });
+
+  it("validates explicit processor release messages", () => {
+    const request = createProcessorReleaseRequest("release-1");
+    const response = createProcessorReleaseResponse("content", "release-1");
+
+    expect(validateProcessorReleaseRequest(request)).toEqual({
+      ok: true,
+      value: request,
+    });
+    expect(validateProcessorReleaseResponse(response, "content")).toEqual({
+      ok: true,
+      value: response,
+    });
+    expect(validateProcessorReleaseResponse(response, "popup").ok).toBe(
+      false,
+    );
   });
 
   it("does not let an inner worker envelope overwrite outer discriminants", () => {

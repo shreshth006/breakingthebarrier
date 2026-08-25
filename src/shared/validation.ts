@@ -7,6 +7,14 @@ import type { BtbError } from "./errors";
 import type {
   HealthErrorResponse,
   MessageTarget,
+  ProcessorMemoryDiagnosticInternalRequest,
+  ProcessorMemoryDiagnosticInternalResponse,
+  ProcessorMemoryDiagnosticRequest,
+  ProcessorMemoryDiagnosticResponse,
+  ProcessorMemoryStage,
+  ProcessorMemoryStageEvent,
+  ProcessorReleaseRequest,
+  ProcessorReleaseResponse,
   ProcessorEnsureRequest,
   ProcessorEnsureResponse,
   ProcessorProbeRequest,
@@ -69,12 +77,91 @@ export function getMessageTarget(value: unknown): MessageTarget | null {
     value.target === "serviceWorker" ||
     value.target === "processor" ||
     value.target === "popup" ||
-    value.target === "content"
+    value.target === "content" ||
+    value.target === "diagnostics"
   ) {
     return value.target;
   }
 
   return null;
+}
+
+export function validateProcessorReleaseRequest(
+  value: unknown,
+): ValidationResult<ProcessorReleaseRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "serviceWorker" ||
+    value.type !== "processor.release" ||
+    requestId === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "serviceWorker",
+      type: "processor.release",
+      requestId,
+    },
+  };
+}
+
+export function validateProcessorMemoryDiagnosticRequest(
+  value: unknown,
+): ValidationResult<ProcessorMemoryDiagnosticRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "serviceWorker" ||
+    value.type !== "processor.memory.diagnostic" ||
+    requestId === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "serviceWorker",
+      type: "processor.memory.diagnostic",
+      requestId,
+    },
+  };
+}
+
+export function validateProcessorMemoryDiagnosticInternalRequest(
+  value: unknown,
+): ValidationResult<ProcessorMemoryDiagnosticInternalRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "processor" ||
+    value.type !== "processor.memory.diagnostic.internal" ||
+    requestId === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "processor",
+      type: "processor.memory.diagnostic.internal",
+      requestId,
+    },
+  };
 }
 
 export function validateProcessorEnsureRequest(
@@ -333,6 +420,143 @@ export function validateProcessorEnsureResponse(
       type: "processor.ensure.response",
       requestId,
       ...details,
+    },
+  };
+}
+
+export function validateProcessorReleaseResponse(
+  value: unknown,
+  target: "popup" | "content",
+): ValidationResult<ProcessorReleaseResponse> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== target ||
+    value.type !== "processor.release.response" ||
+    value.released !== true ||
+    requestId === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target,
+      type: "processor.release.response",
+      requestId,
+      released: true,
+    },
+  };
+}
+
+function validateMemoryDiagnosticResponseEnvelope(
+  value: unknown,
+  target: "serviceWorker" | "popup" | "content",
+  type:
+    | "processor.memory.diagnostic.internal.response"
+    | "processor.memory.diagnostic.response",
+): ValidationResult<
+  ProcessorMemoryDiagnosticInternalResponse | ProcessorMemoryDiagnosticResponse
+> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const details = readProbeDetails(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== target ||
+    value.type !== type ||
+    requestId === null ||
+    details === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return target === "serviceWorker"
+    ? {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "serviceWorker",
+          type: "processor.memory.diagnostic.internal.response",
+          requestId,
+          ...details,
+        },
+      }
+    : {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target,
+          type: "processor.memory.diagnostic.response",
+          requestId,
+          ...details,
+        },
+      };
+}
+
+export function validateProcessorMemoryDiagnosticInternalResponse(
+  value: unknown,
+): ValidationResult<ProcessorMemoryDiagnosticInternalResponse> {
+  return validateMemoryDiagnosticResponseEnvelope(
+    value,
+    "serviceWorker",
+    "processor.memory.diagnostic.internal.response",
+  ) as ValidationResult<ProcessorMemoryDiagnosticInternalResponse>;
+}
+
+export function validateProcessorMemoryDiagnosticResponse(
+  value: unknown,
+  target: "popup" | "content",
+): ValidationResult<ProcessorMemoryDiagnosticResponse> {
+  return validateMemoryDiagnosticResponseEnvelope(
+    value,
+    target,
+    "processor.memory.diagnostic.response",
+  ) as ValidationResult<ProcessorMemoryDiagnosticResponse>;
+}
+
+function isProcessorMemoryStage(value: unknown): value is ProcessorMemoryStage {
+  return (
+    value === "worker-created" ||
+    value === "wasm-initialized" ||
+    value === "dictionary-files-fetched" ||
+    value === "dictionary-constructed" ||
+    value === "tokenizer-constructed" ||
+    value === "temporary-buffers-released" ||
+    value === "batch-completed" ||
+    value === "stabilized"
+  );
+}
+
+export function validateProcessorMemoryStageEvent(
+  value: unknown,
+): ValidationResult<ProcessorMemoryStageEvent> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "diagnostics" ||
+    value.type !== "processor.memory.stage" ||
+    requestId === null ||
+    !isProcessorMemoryStage(value.stage)
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "diagnostics",
+      type: "processor.memory.stage",
+      requestId,
+      stage: value.stage,
     },
   };
 }

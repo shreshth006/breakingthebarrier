@@ -1,8 +1,9 @@
 # Breaking the Barrier — Implementation Phases
 
 - **Planning bootstrap:** Complete
-- **Current implementation phase:** Phase 0 — in progress
-- **Last updated:** 2026-08-24
+- **Current implementation phase:** Phase 0 — complete
+- **Next phase:** Phase 1 — ready to start, not started
+- **Last updated:** 2026-08-26
 
 ## 1. Roadmap principles
 
@@ -44,7 +45,17 @@ flowchart LR
     P6 --> P7["Phase 7<br/>Second language"]
 ```
 
-## Phase 0 — Repository modernization and architecture spikes
+## Phase 0 — Repository modernization and architecture spikes (complete)
+
+**Completed:** 2026-08-26
+
+**Final gate:** Lindera 5.3.0, IPADIC 5.3.0, and WanaKana 5.3.1 are approved.
+The original less-than-150 MiB loaded-memory target failed; the evidence-backed
+initial Japanese processor exception is at most 180 MiB incremental Linux PSS.
+Five final Chromium 151/Linux runs measured 158.5–160.4 MiB steady and
+159.7–171.7 MiB peak, while explicit unload reclaimed 143.5–143.9 MiB. Package,
+quality, cold/warm latency, CSP, offline, provenance, boundary, teardown, and
+distribution checks passed. Phase 1 has not begun.
 
 ### Objective
 

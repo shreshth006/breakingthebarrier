@@ -9,8 +9,19 @@ export type MessageTarget =
   | "serviceWorker"
   | "processor"
   | "popup"
-  | "content";
+  | "content"
+  | "diagnostics";
 export type CallerTarget = "popup" | "content";
+
+export type ProcessorMemoryStage =
+  | "worker-created"
+  | "wasm-initialized"
+  | "dictionary-files-fetched"
+  | "dictionary-constructed"
+  | "tokenizer-constructed"
+  | "temporary-buffers-released"
+  | "batch-completed"
+  | "stabilized";
 
 export type ProcessorCapability =
   | "lindera-wasm"
@@ -65,6 +76,58 @@ export interface ProcessorEnsureResponse extends ProcessorProbeDetails {
   readonly target: "popup";
   readonly type: "processor.ensure.response";
   readonly requestId: string;
+}
+
+export interface ProcessorReleaseRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "processor.release";
+  readonly requestId: string;
+}
+
+export interface ProcessorReleaseResponse {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: CallerTarget;
+  readonly type: "processor.release.response";
+  readonly requestId: string;
+  readonly released: true;
+}
+
+export interface ProcessorMemoryDiagnosticRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "processor.memory.diagnostic";
+  readonly requestId: string;
+}
+
+export interface ProcessorMemoryDiagnosticInternalRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "processor";
+  readonly type: "processor.memory.diagnostic.internal";
+  readonly requestId: string;
+}
+
+export interface ProcessorMemoryDiagnosticInternalResponse
+  extends ProcessorProbeDetails {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "processor.memory.diagnostic.internal.response";
+  readonly requestId: string;
+}
+
+export interface ProcessorMemoryDiagnosticResponse extends ProcessorProbeDetails {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: CallerTarget;
+  readonly type: "processor.memory.diagnostic.response";
+  readonly requestId: string;
+}
+
+export interface ProcessorMemoryStageEvent {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "diagnostics";
+  readonly type: "processor.memory.stage";
+  readonly requestId: string;
+  readonly stage: ProcessorMemoryStage;
 }
 
 export interface TransliterationBatchRequest {
@@ -173,6 +236,100 @@ export function createHealthErrorResponse(
     type: "health.error",
     requestId: error.requestId,
     error,
+  };
+}
+
+export function createProcessorReleaseRequest(
+  requestId: string,
+): ProcessorReleaseRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "processor.release",
+    requestId,
+  };
+}
+
+export function createProcessorReleaseResponse(
+  target: CallerTarget,
+  requestId: string,
+): ProcessorReleaseResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target,
+    type: "processor.release.response",
+    requestId,
+    released: true,
+  };
+}
+
+export function createProcessorMemoryDiagnosticRequest(
+  requestId: string,
+): ProcessorMemoryDiagnosticRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "processor.memory.diagnostic",
+    requestId,
+  };
+}
+
+export function createProcessorMemoryDiagnosticInternalRequest(
+  requestId: string,
+): ProcessorMemoryDiagnosticInternalRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "processor",
+    type: "processor.memory.diagnostic.internal",
+    requestId,
+  };
+}
+
+export function createProcessorMemoryDiagnosticInternalResponse(
+  requestId: string,
+  details: ProcessorProbeDetails,
+): ProcessorMemoryDiagnosticInternalResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "processor.memory.diagnostic.internal.response",
+    requestId,
+    status: details.status,
+    capabilities: details.capabilities,
+    versions: details.versions,
+    measurements: details.measurements,
+    selfTestPassed: details.selfTestPassed,
+  };
+}
+
+export function createProcessorMemoryDiagnosticResponse(
+  target: CallerTarget,
+  requestId: string,
+  details: ProcessorProbeDetails,
+): ProcessorMemoryDiagnosticResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target,
+    type: "processor.memory.diagnostic.response",
+    requestId,
+    status: details.status,
+    capabilities: details.capabilities,
+    versions: details.versions,
+    measurements: details.measurements,
+    selfTestPassed: details.selfTestPassed,
+  };
+}
+
+export function createProcessorMemoryStageEvent(
+  requestId: string,
+  stage: ProcessorMemoryStage,
+): ProcessorMemoryStageEvent {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "diagnostics",
+    type: "processor.memory.stage",
+    requestId,
+    stage,
   };
 }
 

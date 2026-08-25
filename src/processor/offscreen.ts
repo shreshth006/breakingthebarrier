@@ -6,30 +6,39 @@ import { createBtbError } from "../shared/errors";
 import {
   createHealthErrorResponse,
   createProcessorBatchResponse,
+  createProcessorMemoryDiagnosticInternalResponse,
+  createProcessorMemoryStageEvent,
   createProcessorProbeResponse,
 } from "../shared/messages";
 import type {
   HealthErrorResponse,
   ProcessorBatchRequest,
   ProcessorBatchResponse,
+  ProcessorMemoryDiagnosticInternalRequest,
+  ProcessorMemoryDiagnosticInternalResponse,
   ProcessorProbeRequest,
   ProcessorProbeResponse,
 } from "../shared/messages";
 import {
   getMessageTarget,
   validateProcessorBatchRequest,
+  validateProcessorMemoryDiagnosticInternalRequest,
   validateProcessorProbeRequest,
 } from "../shared/validation";
 import {
   createJapaneseWorkerBatchRequest,
+  createJapaneseWorkerMemoryDiagnosticRequest,
   createJapaneseWorkerProbeRequest,
   isJapaneseWorkerBatchFailure,
   isJapaneseWorkerBatchResponse,
+  isJapaneseWorkerMemoryDiagnosticResponse,
+  isJapaneseWorkerMemoryStageEvent,
   isJapaneseWorkerProbeFailure,
   isJapaneseWorkerProbeResponse,
 } from "../shared/worker-messages";
 import type {
   JapaneseWorkerBatchResponse,
+  JapaneseWorkerMemoryDiagnosticResponse,
   JapaneseWorkerProbeResponse,
 } from "../shared/worker-messages";
 import type { BtbCauseCategory } from "../shared/errors";
@@ -162,6 +171,65 @@ function requestJapaneseWorkerBatch(
   });
 }
 
+function requestJapaneseWorkerMemoryDiagnostic(
+  request: ProcessorMemoryDiagnosticInternalRequest,
+): Promise<JapaneseWorkerMemoryDiagnosticResponse> {
+  const worker = getJapaneseWorker();
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resetJapaneseWorker();
+      reject(new JapaneseWorkerRequestError("timeout"));
+    }, PROCESSOR_PROBE_TIMEOUT_MS);
+
+    const handleMessage = (event: MessageEvent<unknown>): void => {
+      if (
+        isJapaneseWorkerMemoryStageEvent(event.data) &&
+        event.data.requestId === request.requestId
+      ) {
+        void chrome.runtime.sendMessage(
+          createProcessorMemoryStageEvent(
+            request.requestId,
+            event.data.stage,
+          ),
+        );
+      } else if (
+        isJapaneseWorkerMemoryDiagnosticResponse(event.data) &&
+        event.data.requestId === request.requestId
+      ) {
+        cleanup();
+        resolve(event.data);
+      } else if (
+        isJapaneseWorkerProbeFailure(event.data) &&
+        event.data.requestId === request.requestId
+      ) {
+        cleanup();
+        resetJapaneseWorker();
+        reject(new JapaneseWorkerRequestError(event.data.reason));
+      }
+    };
+
+    const handleError = (): void => {
+      cleanup();
+      resetJapaneseWorker();
+      reject(new JapaneseWorkerRequestError("worker"));
+    };
+
+    function cleanup(): void {
+      clearTimeout(timeoutId);
+      worker.removeEventListener("message", handleMessage);
+      worker.removeEventListener("error", handleError);
+    }
+
+    worker.addEventListener("message", handleMessage);
+    worker.addEventListener("error", handleError);
+    worker.postMessage(
+      createJapaneseWorkerMemoryDiagnosticRequest(request.requestId),
+    );
+  });
+}
+
 async function requestJapaneseWorkerBatchWithRetry(
   request: ProcessorBatchRequest,
 ): Promise<JapaneseWorkerBatchResponse> {
@@ -212,6 +280,31 @@ async function handleProcessorBatch(
   }
 }
 
+async function handleProcessorMemoryDiagnostic(
+  request: ProcessorMemoryDiagnosticInternalRequest,
+): Promise<ProcessorMemoryDiagnosticInternalResponse | HealthErrorResponse> {
+  try {
+    const response = await requestJapaneseWorkerMemoryDiagnostic(request);
+    return createProcessorMemoryDiagnosticInternalResponse(
+      request.requestId,
+      response,
+    );
+  } catch (error) {
+    const reason =
+      error instanceof JapaneseWorkerRequestError ? error.reason : "worker";
+    return createHealthErrorResponse(
+      "serviceWorker",
+      createBtbError(
+        reason === "timeout" ? "worker-timeout" : "worker-unavailable",
+        "worker",
+        reason,
+        true,
+        request.requestId,
+      ),
+    );
+  }
+}
+
 chrome.runtime.onMessage.addListener(
   (
     message: unknown,
@@ -224,13 +317,18 @@ chrome.runtime.onMessage.addListener(
 
     const probeRequest = validateProcessorProbeRequest(message);
     const batchRequest = validateProcessorBatchRequest(message);
-    const validRequest = probeRequest.ok || batchRequest.ok;
+    const diagnosticRequest =
+      validateProcessorMemoryDiagnosticInternalRequest(message);
+    const validRequest =
+      probeRequest.ok || batchRequest.ok || diagnosticRequest.ok;
     if (!validRequest || sender.id !== chrome.runtime.id) {
       const requestId = probeRequest.ok
         ? probeRequest.value.requestId
         : batchRequest.ok
           ? batchRequest.value.requestId
-          : null;
+          : diagnosticRequest.ok
+            ? diagnosticRequest.value.requestId
+            : null;
       const error = validRequest
         ? createBtbError(
             "invalid-sender",
@@ -248,6 +346,10 @@ chrome.runtime.onMessage.addListener(
       void handleProcessorProbe(probeRequest.value).then(sendResponse);
     } else if (batchRequest.ok) {
       void handleProcessorBatch(batchRequest.value).then(sendResponse);
+    } else if (diagnosticRequest.ok) {
+      void handleProcessorMemoryDiagnostic(diagnosticRequest.value).then(
+        sendResponse,
+      );
     }
     return true;
   },
