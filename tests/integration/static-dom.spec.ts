@@ -324,8 +324,8 @@ test("realistic Phase 1 fixture preserves counters, loanwords, boundaries, and c
     });
     expect(startSummary).toMatchObject({
       state: "active",
-      eligibleNodes: 11,
-      processedNodes: 11,
+      eligibleNodes: 15,
+      processedNodes: 15,
       failedNodes: 0,
     });
     await expect(page.locator("#inline-boundaries")).toHaveText(
@@ -344,6 +344,14 @@ test("realistic Phase 1 fixture preserves counters, loanwords, boundaries, and c
       "toukyou。desu English 123 🎵",
       { useInnerText: false },
     );
+    await expect(page.locator("#phonetics")).toHaveText(
+      "takasegawa nijouen / genryuuteien / natte",
+    );
+    await expect(page.locator("#cookie")).toHaveText(
+      "Cookie ni kansuru seimei",
+    );
+    await expect(page.locator("#latin-left")).toHaveText("toukyou ABC");
+    await expect(page.locator("#latin-right")).toHaveText("ABC toukyou");
     await expect(page.locator("#excluded")).toHaveText("ファースト 東京");
     await expect(page.locator("#page-owned")).toHaveAttribute(
       "data-page-owned",
@@ -397,6 +405,12 @@ test("realistic Phase 1 fixture preserves counters, loanwords, boundaries, and c
     await expect(page.locator("#unknown-compounds")).toHaveText(
       "巨椋池 諏訪頼嗣 東京",
     );
+    await expect(page.locator("#phonetics")).toHaveText(
+      "たかせがわ にじょうえん / げんりゅうていえん / なって",
+    );
+    await expect(page.locator("#cookie")).toHaveText("Cookieに関する声明");
+    await expect(page.locator("#latin-left")).toHaveText("東京ABC");
+    await expect(page.locator("#latin-right")).toHaveText("ABC東京");
     const restored = await page.evaluate(() => {
       const node = document.querySelector("#page-owned")?.firstChild;
       document.querySelector("#page-owned")?.dispatchEvent(

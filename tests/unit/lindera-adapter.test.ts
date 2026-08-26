@@ -174,10 +174,77 @@ describe("Japanese Lindera adapter", () => {
       .toBe("  English 東京 123 🎵  ");
   });
 
+  it("bypasses morphology for Kana-only runs and keeps Latin boundaries readable", async () => {
+    const adapter = new JapaneseLinderaAdapter(
+      {
+        tokenize: (source) => {
+          if (source !== "に関する声明") {
+            throw new Error("Kana-only input must not reach Lindera");
+          }
+          return [
+            token("に", 0, 3, ["助詞", "格助詞", "一般", "*", "*", "*", "に", "ニ", "ニ"]),
+            token("関する", 3, 12, ["動詞", "自立", "*", "*", "サ変・スル", "基本形", "関する", "カンスル", "カンスル"]),
+            token("声明", 12, 18, ["名詞", "一般", "*", "*", "*", "*", "声明", "セイメイ", "セイメイ"]),
+          ];
+        },
+      },
+      "5.3.0",
+    );
+
+    const results = await adapter.transliterate(
+      ["たかせがわ", "にじょうえん", "げんりゅうていえん", "なって", "Cookieに関する声明"].map(
+        (source) => ({
+          itemId: source,
+          source,
+          language: "ja" as const,
+          romanizationPolicy: "ascii-hepburn-v1",
+        }),
+      ),
+    );
+
+    expect(results.slice(0, 4).map((result) => result.rendered)).toEqual([
+      "takasegawa",
+      "nijouen",
+      "genryuuteien",
+      "natte",
+    ]);
+    expect(results[4]?.rendered).toBe("Cookie ni kansuru seimei");
+  });
+
   it("includes adjacent numeric context without reopening arbitrary mixed input", () => {
     expect(findTokenizableJapaneseRuns("1928年 2月29日 English 123 🎵")).toEqual([
       { start: 0, end: 5, source: "1928年" },
       { start: 6, end: 11, source: "2月29日" },
     ]);
+  });
+
+  it("separates a leading hiragana particle from a fused analyzer token", async () => {
+    const adapter = new JapaneseLinderaAdapter(
+      {
+        tokenize: () => [
+          token("に関する", 0, 12, [
+            "動詞",
+            "自立",
+            "*",
+            "*",
+            "サ変・スル",
+            "基本形",
+            "に関する",
+            "ニカンスル",
+            "ニカンスル",
+          ]),
+        ],
+      },
+      "5.3.0",
+    );
+    const [result] = await adapter.transliterate([
+      {
+        itemId: "fused",
+        source: "に関する",
+        language: "ja",
+        romanizationPolicy: "ascii-hepburn-v1",
+      },
+    ]);
+    expect(result?.rendered).toBe("ni kansuru");
   });
 });

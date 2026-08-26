@@ -121,13 +121,17 @@ These rules are non-negotiable.
 - A supported Japanese run may include only directly adjacent numeric context
   needed for morphology. Preserve the original number surface; do not reopen
   arbitrary Latin, URL, emoji, or unbounded mixed-page input.
+- Hiragana-only runs without Han, Katakana, or numeric context use direct Kana
+  romanization to preserve phonetic continuity; Katakana loanwords and
+  Han-bearing runs retain their contextual analyzer paths.
 - Japanese Kanji readings require contextual tokenization. Do not add per-character Kanji substitution as a fallback.
 - An unknown Han-bearing token without a reliable reading stays original and produces a structured internal warning.
 - If a contiguous Han compound contains an unresolved segment, preserve the
   whole lexical compound; do not show a known/unknown half-reading.
-- Inline boundary spaces are rendering-only and require two adjacent BTB-owned
-  fragments with ASCII word edges inside an inline boundary. They must be
-  restored completely with the source text.
+- Inline boundary spaces are rendering-only and require safe adjacent
+  ASCII/Japanese word edges, whether across BTB-owned inline fragments or
+  preserved Latin and Japanese segments in one owned node. They must be restored
+  completely with the source text.
 - Do not expose an invented numeric language or reading confidence.
 - OCR confidence refers only to OCR recognition quality.
 - Treat `ascii-hepburn-v1` and Japanese spacing as product behavior defined by golden tests, not whatever a dependency happens to emit.

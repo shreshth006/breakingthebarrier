@@ -480,6 +480,13 @@ For extended Katakana loanwords, the product policy layer owns familiar compact
 ASCII spellings where WanaKana's historical table is not suitable; it does not
 rewrite ordinary adjacent Kana sequences.
 
+Direct Hiragana-only runs use the pinned Kana policy without a morphology call.
+This keeps phonetic units such as `たかせがわ` and `なって` contiguous while
+Katakana loanwords and Han-bearing runs retain contextual analysis. Spacing is
+based on phonetic and grammatical boundaries, not a blind mirror of analyzer
+token boundaries; fused leading-particle tokens are split render-only when
+their source and reading make that boundary unambiguous.
+
 Byte offsets from WASM must be converted to JavaScript string offsets through a tested mapper because JavaScript uses UTF-16 code units and Japanese strings may contain supplementary characters or emoji.
 
 ### 10.4 ASCII Hepburn policy
@@ -1491,21 +1498,24 @@ for directly adjacent numeric context. Arabic digits remain source surfaces;
 counter spacing is applied from token context, not a global Kanji replacement
 table. The ASCII Hepburn adapter owns a small source-based extended-Katakana
 policy. A contiguous Han compound containing an unresolved token remains wholly
-original. Replace mode may add a single temporary prefix space only between
-adjacent BTB-owned text nodes whose rendered edges are ASCII words and whose
-DOM path remains inline; restoration removes it with the owned value.
+original. Replace mode may add a single temporary prefix space at safe
+ASCII/Japanese boundaries, either between adjacent BTB-owned text nodes or
+between preserved Latin and Japanese segments in one owned text node;
+restoration removes it with the owned value.
 
 **Reason:** The first real Japanese Wikipedia smoke test exposed counter
 misreadings caused by isolating digits, WanaKana's unsuitable historical
-extended-Katakana spellings, misleading known/unknown compound fragments, and
-Latin word collisions across inline element boundaries. Each fix is bounded by
+extended-Katakana spellings, misleading known/unknown compound fragments,
+fused particle readings, and Latin word collisions across inline element
+boundaries. Each fix is bounded by
 source offsets and ownership state and remains local/offline.
 
 **Alternatives considered:** Broad mixed-input re-enablement, output-wide string
 replacement, per-site/proper-name hardcoding, wrapper elements, parent
 replacement, or deferring all boundary readability to a later renderer.
 
-**Trade-offs:** The numeric exception and compact loanword policy remain
+**Trade-offs:** The direct Hiragana path intentionally does not replace
+Katakana morphology, and the numeric exception and compact loanword policy remain
 language-specific and corpus-versioned. IPADIC proper-name accuracy is still
 not guaranteed; quality observations remain separate. Boundary spacing is
 conservative and intentionally skips block, punctuation, whitespace, and

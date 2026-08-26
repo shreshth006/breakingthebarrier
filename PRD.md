@@ -166,6 +166,10 @@ Spotlight captures a small region around a stationary pointer after a deliberate
 - **FR-JA-02a:** The policy may pass directly adjacent numeric context to the analyzer for
   counter readings while preserving Arabic number surfaces, and uses familiar
   compact spellings for supported extended Katakana loanword sounds.
+- **FR-JA-02b:** Hiragana-only phonetic runs must bypass morphology when no Han,
+  Katakana, or numeric context is present, preserving contiguous readings for
+  forms such as `たかせがわ` and `なって`; spacing must follow phonetic and
+  grammatical boundaries rather than blindly mirroring analyzer tokens.
 - **FR-JA-03:** The engine must preserve source and token offsets so future renderers can align readings with original text.
 - **FR-JA-04:** Unknown Kanji tokens without a reliable reading must remain original and carry an internal warning; they must not receive a guessed per-character reading.
 - **FR-JA-05:** The engine must be replaceable behind a stable language-engine contract.
@@ -178,7 +182,10 @@ Spotlight captures a small region around a stationary pointer after a deliberate
 - **FR-REN-03:** An asynchronous result may be applied only if the node is still connected, the mode is still active, and the source revision still matches.
 - **FR-REN-04:** Turning Live Mode off must restore the latest known page-authored text for every still-owned node.
 - **FR-REN-05:** Restoration must not overwrite a newer value written by the page.
-- **FR-REN-06:** Removed nodes must not be retained indefinitely by restoration bookkeeping.
+- **FR-REN-06:** Render-only spaces may clarify safe ASCII/Japanese joins,
+  including preserved Latin text inside one owned node, but must never alter
+  source text or survive restoration.
+- **FR-REN-07:** Removed nodes must not be retained indefinitely by restoration bookkeeping.
 
 ### 9.5 Dynamic pages
 

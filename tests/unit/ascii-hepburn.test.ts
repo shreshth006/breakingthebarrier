@@ -15,6 +15,17 @@ describe("ASCII Hepburn adapter", () => {
     ["とうきょう", "toukyou"],
     ["あいしてる", "aishiteru"],
     ["きっぷ", "kippu"],
+    ["たかせがわ", "takasegawa"],
+    ["にじょうえん", "nijouen"],
+    ["げんりゅうていえん", "genryuuteien"],
+    ["なって", "natte"],
+    ["きょう", "kyou"],
+    ["ちょっと", "chotto"],
+    ["がっこう", "gakkou"],
+    ["しゅくだい", "shukudai"],
+    ["りょこう", "ryokou"],
+    ["きゃく", "kyaku"],
+    ["じゃない", "janai"],
   ])("romanizes deterministic Kana %s", (source, expected) => {
     expect(romanizeKana(source)).toBe(expected);
   });

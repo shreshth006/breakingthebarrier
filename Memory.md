@@ -41,8 +41,9 @@ source strings, and releases the processor after the final tracked session.
   Arabic digits while restoring counter readings such as `1928 nen`, `2 gatsu`,
   and `490 nin`.
 - Added a source-based extended-Katakana policy (`fa`, `fi`, `fo`, `wi`, `di`),
-  contiguous unknown-Han compound protection, and reversible inline-boundary
-  spaces for adjacent BTB-owned fragments.
+  direct Hiragana romanization for phonetic continuity, contiguous unknown-Han
+  compound protection, and reversible inline-boundary spaces for adjacent
+  BTB-owned fragments or untouched Latin text within one owned node.
 - Replaced the Phase 0 diagnostic popup with minimal Romanize/Show original
   controls and user-facing original, loading, active, partial, unsupported,
   restricted, and retryable states.
@@ -62,9 +63,12 @@ source strings, and releases the processor after the final tracked session.
 - Unknown Han compounds are protected as a contiguous lexical boundary when any
   segment is unresolved. Named-entity observations remain a separate quality
   corpus rather than deterministic production rules.
-- Replace-mode boundary spacing is added only between adjacent BTB-owned text
-  nodes with ASCII word edges inside an inline layout boundary; it is stored in
-  node ownership state and disappears on restore.
+- Kana-only Hiragana runs bypass morphology so `たかせがわ`, `にじょうえん`,
+  `げんりゅうていえん`, and `なって` remain phonetic units rather than
+  analyzer-token fragments. Katakana and Kanji retain their contextual paths.
+- Render-only boundary spacing is added at safe ASCII/Japanese joins, including
+  a preserved Latin prefix in the same BTB-owned text node; source text and
+  ownership state remain exact and the spaces disappear on restore.
 - The frame cache key namespace includes language, Lindera, IPADIC,
   romanization-policy, and spacing-policy versions. Page-derived entries remain
   in memory and clear on stop.
@@ -105,7 +109,6 @@ Phase 0 retained processor reference remains:
 - `src/content/engine-client.ts`: cache, coalescing, and bounded local batches.
 - `src/content/node-state.ts`: source/revision/renderer ownership.
 - `src/detector/`: script and language evidence.
-- `src/renderers/replace.ts`: `Text.data`-only renderer.
 - `src/renderers/replace.ts`: `Text.data`-only renderer and conservative inline
   boundary-spacing pass.
 - `src/engines/japanese/lindera-adapter.ts`: safe Japanese-run tokenization and
@@ -115,7 +118,8 @@ Phase 0 retained processor reference remains:
 - `tests/integration/static-dom.spec.ts`: packaged static article, offline,
   restoration, and 5,000-node performance gates.
 - `tests/fixtures/pages/hardening-article.html`: realistic counters, loanwords,
-  inline links, punctuation, and unknown-compound fixture.
+  phonetic Kana examples, Latin boundaries, inline links, punctuation, and
+  unknown-compound fixture.
 
 # Known Issues
 
@@ -148,9 +152,10 @@ Phase 0 retained processor reference remains:
 
 Final release gates:
 
-- `npm run test` — 14 Vitest files with 75 passing tests, including numeric
-  context, Katakana, unknown-compound, and renderer-boundary regressions.
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 75 unit
+- `npm run test` — 14 Vitest files with 88 passing tests, including phonetic
+  Kana, numeric context, Katakana, unknown-compound, and renderer-boundary
+  regressions.
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 88 unit
   tests, both production bundles, and the distribution
   inventory all passed.
 - `npm run test:integration` — all five packaged Chromium tests passed: the
@@ -158,8 +163,9 @@ Final release gates:
   exact static DOM replacement/restoration, the realistic hardening fixture,
   and the 5,000-node page-side gate.
 - Ad hoc real-page Chromium smoke: `https://ja.wikipedia.org/wiki/メインページ`
-  reached `active` with 415 eligible/processed nodes and restored successfully;
-  only metadata was logged.
+  reached `active` with 403 eligible/processed nodes, restored successfully,
+  and made zero extension/background uploads after activation; only metadata
+  and bounded sample-hit counts were logged.
 - The packaged popup was visually inspected in Chromium at its production
   width with active-session status and restore controls.
 

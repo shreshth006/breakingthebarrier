@@ -166,8 +166,8 @@ individual failures remain original, and processor sessions are released only
 when no tracked active tab remains. The 5,000-node Chromium fixture measured
 3.4 MiB retained renderer growth, 20.6 MiB aggregate PSS movement, and zero
 observed long tasks over 50 ms. The hardening fixture also covers numeric
-context, extended Katakana, unknown compounds, and inline boundaries. Phase 2
-dynamic observation has not begun.
+context, extended Katakana, direct Hiragana phonetics, unknown compounds, and
+ASCII/Japanese inline boundaries. Phase 2 dynamic observation has not begun.
 
 ### Objective
 

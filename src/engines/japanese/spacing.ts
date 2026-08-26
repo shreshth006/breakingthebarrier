@@ -1,4 +1,5 @@
 import type { JapaneseToken } from "./ipadic-schema";
+import { romanizeKana } from "./ascii-hepburn";
 
 export const JAPANESE_SPACING_POLICY_VERSION = "japanese-spacing-v1";
 
@@ -38,6 +39,23 @@ function isCounterToken(token: JapaneseToken): boolean {
   );
 }
 
+function splitLeadingKanaBoundary(token: JapaneseToken, output: string): string {
+  if (
+    token.romanized === null ||
+    !/^\p{Script=Hiragana}+\p{Script=Han}/u.test(token.source)
+  ) {
+    return output;
+  }
+  const leadingKana = /^(\p{Script=Hiragana}+)/u.exec(token.source)?.[1];
+  if (leadingKana === undefined) {
+    return output;
+  }
+  const prefix = romanizeKana(leadingKana);
+  return output.startsWith(prefix) && output.length > prefix.length
+    ? `${prefix} ${output.slice(prefix.length)}`
+    : output;
+}
+
 function numericContextBoundary(
   token: JapaneseToken,
   previous: JapaneseToken,
@@ -63,7 +81,10 @@ export function formatJapaneseTokens(
       rendered += sourceGap;
     }
 
-    const output = token.romanized ?? token.source;
+    const output = splitLeadingKanaBoundary(
+      token,
+      token.romanized ?? token.source,
+    );
     const protectedCompoundBoundary =
       previous?.isUnknownCompound === true && token.isUnknownCompound;
     const numericBoundary =
