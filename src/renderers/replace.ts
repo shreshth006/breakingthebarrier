@@ -43,6 +43,23 @@ function firstTextDescendant(node: Node): Text | null {
   return null;
 }
 
+function lastTextDescendant(node: Node): Text | null {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node as Text;
+  }
+  for (let index = node.childNodes.length - 1; index >= 0; index -= 1) {
+    const child = node.childNodes[index];
+    if (child === undefined) {
+      continue;
+    }
+    const text = lastTextDescendant(child);
+    if (text !== null) {
+      return text;
+    }
+  }
+  return null;
+}
+
 function nextTextNode(node: Text): NextTextResult {
   let current: Node | null = node;
   let hardBreak = false;
@@ -64,6 +81,59 @@ function nextTextNode(node: Text): NextTextResult {
     current = current.parentNode;
   }
   return { node: null, hardBreak };
+}
+
+function previousTextNode(node: Text): Text | null {
+  let current: Node | null = node;
+  while (current !== null) {
+    if (current.previousSibling !== null) {
+      current = current.previousSibling;
+      const text = lastTextDescendant(current);
+      if (text !== null) {
+        return text;
+      }
+      continue;
+    }
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function isActiveRenderedNode(
+  node: Text,
+  registry: NodeStateRegistry,
+): boolean {
+  const state = registry.get(node);
+  return state?.status === "rendered" && state.rendered !== null;
+}
+
+export function collectInlineBoundaryNodes(
+  nodes: readonly Text[],
+  registry: NodeStateRegistry,
+): readonly Text[] {
+  const expanded = new Set<Text>();
+  for (const node of nodes) {
+    if (!node.isConnected) {
+      continue;
+    }
+    expanded.add(node);
+    const previous = previousTextNode(node);
+    if (previous !== null && isActiveRenderedNode(previous, registry)) {
+      expanded.add(previous);
+    }
+    const next = nextTextNode(node).node;
+    if (next !== null && isActiveRenderedNode(next, registry)) {
+      expanded.add(next);
+    }
+  }
+  return [...expanded].sort((left, right) => {
+    if (left === right) {
+      return 0;
+    }
+    return left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING
+      ? -1
+      : 1;
+  });
 }
 
 function crossesBlockBoundary(left: Text, right: Text): boolean {

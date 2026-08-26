@@ -18,6 +18,7 @@ export interface NodeState {
 
 export class NodeStateRegistry {
   readonly #states = new WeakMap<Text, NodeState>();
+  readonly #trackedNodes = new Set<Text>();
   readonly #activeNodes = new Set<Text>();
 
   capture(node: Text, sessionEpoch: number): NodeState {
@@ -32,6 +33,21 @@ export class NodeStateRegistry {
       boundaryPrefix: "",
     };
     this.#states.set(node, state);
+    this.#trackedNodes.add(node);
+    return state;
+  }
+
+  updateSource(node: Text, sessionEpoch: number): NodeState {
+    const state = this.#states.get(node);
+    if (state?.sessionEpoch !== sessionEpoch) {
+      return this.capture(node, sessionEpoch);
+    }
+    state.source = node.data;
+    state.rendered = null;
+    state.revision += 1;
+    state.status = "queued";
+    state.boundaryPrefix = "";
+    this.#activeNodes.delete(node);
     return state;
   }
 
@@ -41,6 +57,19 @@ export class NodeStateRegistry {
 
   markActive(node: Text): void {
     this.#activeNodes.add(node);
+  }
+
+  markFailed(node: Text): void {
+    const state = this.#states.get(node);
+    if (state !== undefined) {
+      state.status = "failed";
+      this.#activeNodes.delete(node);
+    }
+  }
+
+  isExpectedRenderedValue(node: Text): boolean {
+    const state = this.#states.get(node);
+    return state?.rendered !== null && state?.rendered === node.data;
   }
 
   addBoundaryPrefix(node: Text, prefix: string): boolean {
@@ -75,6 +104,7 @@ export class NodeStateRegistry {
       this.#states.delete(node);
     }
     this.#activeNodes.clear();
+    this.#trackedNodes.clear();
     return restored;
   }
 
@@ -82,7 +112,33 @@ export class NodeStateRegistry {
     for (const node of nodes) {
       if (!this.#activeNodes.has(node)) {
         this.#states.delete(node);
+        this.#trackedNodes.delete(node);
       }
     }
+  }
+
+  forget(node: Text): boolean {
+    const wasTracked = this.#trackedNodes.delete(node);
+    this.#activeNodes.delete(node);
+    this.#states.delete(node);
+    return wasTracked;
+  }
+
+  trackedNodes(): readonly Text[] {
+    return [...this.#trackedNodes];
+  }
+
+  activeCount(): number {
+    return this.#activeNodes.size;
+  }
+
+  failedCount(): number {
+    let failed = 0;
+    for (const node of this.#trackedNodes) {
+      if (this.#states.get(node)?.status === "failed") {
+        failed += 1;
+      }
+    }
+    return failed;
   }
 }

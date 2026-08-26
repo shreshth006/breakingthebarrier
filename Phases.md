@@ -1,8 +1,8 @@
 # Breaking the Barrier — Implementation Phases
 
 - **Planning bootstrap:** Complete
-- **Current implementation phase:** Phase 1 — complete + real-world hardened
-- **Next phase:** Phase 2 — ready to start, not started
+- **Current implementation phase:** Phase 2 — complete + dynamically hardened
+- **Next phase:** Phase 3 — ready to start, not started
 - **Last updated:** 2026-08-26
 
 ## 1. Roadmap principles
@@ -167,7 +167,7 @@ when no tracked active tab remains. The 5,000-node Chromium fixture measured
 3.4 MiB retained renderer growth, 20.6 MiB aggregate PSS movement, and zero
 observed long tasks over 50 ms. The hardening fixture also covers numeric
 context, extended Katakana, direct Hiragana phonetics, unknown compounds, and
-ASCII/Japanese inline boundaries. Phase 2 dynamic observation has not begun.
+ASCII/Japanese inline boundaries.
 
 ### Objective
 
@@ -240,9 +240,20 @@ Prove that a user can invoke the extension on a static page and receive correct,
 
 ### What Phase 1 proves
 
-Phase 1 proves the local Japanese engine, script/evidence boundary, safe static DOM selection, Replace renderer, stale-result guard, and exact restoration. It does not yet prove the product's critical real-time claim; that is Phase 2.
+Phase 1 proves the local Japanese engine, script/evidence boundary, safe static
+DOM selection, Replace renderer, stale-result guard, and exact restoration.
 
 ## Phase 2 — Dynamic DOM observation
+
+**Completed:** 2026-08-26
+
+**Final gate:** The packaged controller installs its observer before the initial
+scan, processes only changed nodes and added subtrees through bounded drains,
+filters its own renderer writes, reconciles same-node and replacement updates,
+cleans removals, and restores the latest page-authored values. The dynamic
+fixture covers lyric transitions, history-state changes, subtree insertion,
+replacement, exclusions, and a 1,000-node mutation burst measured at 207 ms
+with zero observed long tasks. Phase 3 has not begun.
 
 ### Objective
 
@@ -268,10 +279,11 @@ Prove the core product thesis on modern applications: Japanese text that changes
 
 ### Likely files and components
 
-- `src/content/mutation-queue.ts`.
-- Updates to `controller.ts`, `roots.ts`, `node-state.ts`, `scheduler.ts`.
-- Performance configuration and diagnostics.
-- Spotify-like, YouTube-like, React, and mutation-stress fixtures.
+- `src/content/controller.ts`, `node-state.ts`, `scanner.ts`, and
+  `scheduler.ts`.
+- `src/renderers/replace.ts` boundary-neighbor expansion for dynamic updates.
+- Spotify-like lyric, React-style replacement, exclusion, and mutation-stress
+  fixtures.
 
 ### Deliverables
 

@@ -1,10 +1,11 @@
 # Current State
 
-Current phase: Phase 1 — complete + real-world hardened
+Current phase: Phase 2 — dynamic DOM observation complete
 
 Current milestone: A user-invoked main-frame session can romanize eligible
 Japanese text on a static page locally, preserve mixed and excluded content,
-and restore still-owned text exactly. Phase 2 is ready but has not started.
+and restore still-owned text exactly while incrementally tracking dynamic DOM
+changes. Phase 3 has not started.
 
 Last verified working state: The packaged MV3 extension runs offline in
 Chromium 151, receives an action-granted `activeTab`, injects one isolated-world
@@ -47,6 +48,12 @@ source strings, and releases the processor after the final tracked session.
 - Replaced the Phase 0 diagnostic popup with minimal Romanize/Show original
   controls and user-facing original, loading, active, partial, unsupported,
   restricted, and retryable states.
+- Completed Phase 2 with a document-root `MutationObserver` installed before
+  the initial scan. Character-data changes and added/removed roots feed a
+  deduplicated scheduled drain; no periodic full-document rescan is used.
+- Added node-specific expected-render filtering, revision updates for page
+  overwrites, replacement/subtree discovery, detached-node cleanup, and latest
+  page-authored source restoration.
 
 # Architecture Decisions
 
@@ -75,7 +82,12 @@ source strings, and releases the processor after the final tracked session.
 - Page ownership is optimistic and reversible: a result applies only to the
   same connected node, source, revision, and session epoch. Current page data
   wins every conflict.
-- Phase 1 does not install a `MutationObserver`; dynamic updates are Phase 2.
+- The observer watches only `childList`, `characterData`, and `subtree` on the
+  main document. Class/style attributes, frames, and shadow roots remain out of
+  scope.
+- Dynamic drains reuse the Phase 1 scanner, engine client/cache/coalescing, and
+  bounded write slices. Mutation records are discarded after classification;
+  only current node/root identity sets remain queued.
 
 # Final Measurements
 
@@ -91,6 +103,17 @@ diagnostic garbage collection at both renderer baselines:
 - observed page long tasks over 50 ms: zero;
 - exact first-node restoration after stop: passed.
 
+Latest combined Phase 1/2 integration rerun measured 4.1 MiB retained renderer
+growth, 22.2 MiB aggregate Chromium PSS movement, and zero long tasks; the
+20 MiB page-side retained budget remains the applicable limit.
+
+Phase 2 dynamic fixture:
+
+- 1,000 added Japanese text nodes converged in 207 ms in the latest run;
+- zero observed page long tasks over 50 ms;
+- same-node, added-text, added-subtree, replacement, exclusion, rapid-source,
+  self-write, stop-during-request, and detached-node cleanup gates passed.
+
 Phase 0 retained processor reference remains:
 
 - steady incremental PSS: 158.5–160.4 MiB;
@@ -103,9 +126,10 @@ Phase 0 retained processor reference remains:
 
 - `src/content/bootstrap.ts`: idempotent isolated-world entry and command
   listener.
-- `src/content/controller.ts`: static session states, stale guards, writes, and
-  restoration.
-- `src/content/scanner.ts`, `scheduler.ts`: eligibility and bounded collection.
+- `src/content/controller.ts`: session states, observer lifecycle, dynamic
+  queue/drain, stale guards, writes, and restoration.
+- `src/content/scanner.ts`, `scheduler.ts`: shared eligibility and bounded
+  document/subtree collection.
 - `src/content/engine-client.ts`: cache, coalescing, and bounded local batches.
 - `src/content/node-state.ts`: source/revision/renderer ownership.
 - `src/detector/`: script and language evidence.
@@ -115,17 +139,17 @@ Phase 0 retained processor reference remains:
   mixed-span stitching.
 - `src/background/service-worker.ts`: injection, page commands, session
   bookkeeping, and processor lifecycle.
-- `tests/integration/static-dom.spec.ts`: packaged static article, offline,
-  restoration, and 5,000-node performance gates.
-- `tests/fixtures/pages/hardening-article.html`: realistic counters, loanwords,
+- `tests/integration/static-dom.spec.ts`: packaged static/dynamic articles,
+  offline restoration, mutation stress, and 5,000-node performance gates.
+- `tests/fixtures/pages/hardening-article.html`,
+  `tests/fixtures/pages/dynamic-article.html`: realistic counters, loanwords,
   phonetic Kana examples, Latin boundaries, inline links, punctuation, and
-  unknown-compound fixture.
+  dynamic lyric/subtree/replacement fixtures.
 
 # Known Issues
 
-- Static sessions do not observe text changes or added nodes. A page write after
-  rendering wins and remains untouched until Phase 2 can classify and process
-  it as a new revision.
+- Dynamic sessions do not observe class/style visibility changes; text and
+  subtree mutations are observed incrementally.
 - Main-frame document text only is supported. Iframes and open Shadow DOM remain
   later work; closed roots and unauthorized cross-origin frames remain out of
   scope.
@@ -140,28 +164,22 @@ Phase 0 retained processor reference remains:
 
 # Current TODO
 
-- Begin Phase 2 only when explicitly requested: install mutation observation
-  before the initial scan and process only added subtrees and changed text
-  nodes through bounded deduplicated drains.
-- Add expected-render mutation ownership, same-node framework overwrite,
-  replacement-node, removal cleanup, and mutation-stress gates.
-- Preserve the Phase 1 static fixtures as regression gates; do not turn dynamic
-  support into periodic full-page rescanning.
+- Keep Phase 2 live behavior bounded while gathering broader real-site evidence.
+- Do not add Phase 3 remembered-site permissions or new popup UX in this phase.
 
 # Tests
 
 Final release gates:
 
-- `npm run test` — 14 Vitest files with 88 passing tests, including phonetic
-  Kana, numeric context, Katakana, unknown-compound, and renderer-boundary
-  regressions.
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 88 unit
+- `npm run test` — 14 Vitest files with 92 passing tests, including dynamic
+  same-node, subtree, replacement, self-write, stop, and cleanup regressions.
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 92 unit
   tests, both production bundles, and the distribution
   inventory all passed.
-- `npm run test:integration` — all five packaged Chromium tests passed: the
+- `npm run test:integration` — all six packaged Chromium tests passed: the
   staged and five-run processor lifecycle, offline engine and mixed-text path,
   exact static DOM replacement/restoration, the realistic hardening fixture,
-  and the 5,000-node page-side gate.
+  the Phase 2 dynamic/stress fixture, and the 5,000-node page-side gate.
 - Ad hoc real-page Chromium smoke: `https://ja.wikipedia.org/wiki/メインページ`
   reached `active` with 403 eligible/processed nodes, restored successfully,
   and made zero extension/background uploads after activation; only metadata
@@ -181,7 +199,6 @@ Test: `npm run verify && npm run test:integration`
 
 # Notes for Next Agent
 
-Phase 1 is complete. Do not add mutation handling to the static controller by
-periodically rescanning the document. The next phase is Phase 2 — Dynamic DOM
-Observation. Install the observer before the initial scan, preserve expected
-renderer-write ownership, and process only affected nodes or added subtrees.
+Phase 2 is complete. Do not add periodic rescans, attribute observation, site
+selectors, or Phase 3 persistence. The next phase is Phase 3 — Controls,
+remembered sites, and MVP completion.

@@ -92,6 +92,8 @@ These rules are non-negotiable.
 - Every asynchronous apply must revalidate session epoch, node revision, connectivity, and current value.
 - Restoration may write the stored source only when the current value is still the extension-owned rendered value.
 - If the page has written a newer value, leave it untouched and clear extension ownership.
+- Dynamic revision updates replace the owned source with the latest page value;
+  Stop must never rewind through page-authored history.
 - Install observation before the initial scan so mutations during scanning are not lost.
 - Do not disconnect the observer around every extension write.
 - Prevent self-triggered loops with expected rendered values and revision checks.

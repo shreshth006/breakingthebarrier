@@ -3,7 +3,7 @@
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-26
 - **Target:** Chromium desktop, Manifest V3
-- **Implementation status:** Phases 0 and 1 complete; Phase 1 hardened; Phase 2 not started
+- **Implementation status:** Phases 0, 1, and 2 complete; Phase 2 dynamically hardened; Phase 3 not started
 
 ## 1. Repository audit
 
@@ -1520,6 +1520,34 @@ language-specific and corpus-versioned. IPADIC proper-name accuracy is still
 not guaranteed; quality observations remain separate. Boundary spacing is
 conservative and intentionally skips block, punctuation, whitespace, and
 unknown-output boundaries.
+
+### D-15 — Incremental dynamic DOM ownership
+
+**Decision:** Install the document-root `MutationObserver` before asynchronous
+initial scanning. Classify character-data changes, added roots, and removals
+into bounded identity sets; scan only added subtrees with the existing
+eligibility scanner, and route current sources through the existing engine
+client/cache. Each node owns its expected rendered value and revision, so a
+matching renderer write is ignored while any differing value becomes the
+latest page-authored source. Revisions, connection state, and session epochs
+guard every asynchronous write. Removed nodes leave iterable ownership sets;
+stopping disconnects the observer, clears pending work, restores only current
+still-owned sources, and invalidates late results.
+
+**Reason:** Modern pages replace text and subtrees after load. A single
+incremental observer preserves Phase 1 safety while avoiding periodic full-page
+rescans, recursive self-writes, stale framework results, and detached-node
+retention. The measured 1,000-node mutation fixture converged in 207 ms with
+no observed long tasks over 50 ms.
+
+**Alternatives considered:** Polling or full-document rescans, a global
+`isRendering` flag, a second mutation-specific engine client, unrestricted
+attribute observation, and site-specific selectors.
+
+**Trade-offs:** Current text/subtree mutations are covered, but class/style
+visibility changes, frames, and shadow roots remain deferred. A dynamic session
+keeps its observer and warm engine path alive until explicit stop or page
+destruction; no new permission or persistence surface is introduced.
 
 ## 28. Scenario validation
 

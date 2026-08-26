@@ -2,7 +2,7 @@
 
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-26
-- **Implementation status:** Phases 0 and 1 complete; Phase 1 hardened; Phase 2 ready to start
+- **Implementation status:** Phases 0, 1, and 2 complete; Phase 2 dynamically hardened; Phase 3 ready to start
 
 ## 1. Product overview
 
@@ -262,6 +262,8 @@ Targets are validated on an agreed mid-tier reference laptop and representative 
   diagnostic collection, with 20.6 MiB aggregate Chromium PSS movement and no
   observed long task over 50 ms. Aggregate PSS is reported separately from the
   retained page-side budget.
+- The Phase 2 dynamic fixture measured a 207 ms drain for 1,000 added Japanese
+  nodes, with zero observed long tasks and bounded queued work.
 - All caches are bounded and cleared when their owning worker or tab session ends.
 
 ### 10.3 Reliability

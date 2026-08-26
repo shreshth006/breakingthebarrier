@@ -14,6 +14,10 @@ const hardeningFixturePath = resolve(
   projectRoot,
   "tests/fixtures/pages/hardening-article.html",
 );
+const dynamicFixturePath = resolve(
+  projectRoot,
+  "tests/fixtures/pages/dynamic-article.html",
+);
 
 async function readBrowserPssMiB(session: CDPSession): Promise<number> {
   const { processInfo } = await session.send("SystemInfo.getProcessInfo");
@@ -437,6 +441,205 @@ test("realistic Phase 1 fixture preserves counters, loanwords, boundaries, and c
   }
 });
 
+test("Phase 2 observes dynamic text, subtrees, replacements, exclusions, and latest-source restore", async () => {
+  const fixture = await readFile(dynamicFixturePath);
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(fixture);
+  });
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("Dynamic fixture server did not bind a TCP port");
+  }
+
+  const context = await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    headless: true,
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+    ],
+  });
+  try {
+    let serviceWorker = context.serviceWorkers()[0];
+    serviceWorker ??= await context.waitForEvent("serviceworker");
+    const extensionId = new URL(serviceWorker.url()).host;
+    const page = await context.newPage();
+    const fixtureUrl = `http://127.0.0.1:${String(address.port)}/dynamic`;
+    await page.goto(fixtureUrl);
+    const browser = context.browser();
+    if (browser === null) throw new Error("Persistent Chromium browser is unavailable");
+    const browserSession = await browser.newBrowserCDPSession();
+    const { targetInfos } = await browserSession.send("Target.getTargets", {
+      filter: [{ type: "tab", exclude: false }, { exclude: true }],
+    });
+    const pageTarget = targetInfos.find(
+      (target) => target.type === "tab" && target.url === fixtureUrl,
+    );
+    if (pageTarget === undefined) throw new Error("Could not resolve dynamic fixture target");
+    await context.setOffline(true);
+    await browserSession.send("Extensions.triggerAction", {
+      id: extensionId,
+      targetId: pageTarget.targetId,
+    });
+    const extensionControl = await context.newPage();
+    await extensionControl.goto(
+      `chrome-extension://${extensionId}/src/ui/popup/popup.html`,
+    );
+    await page.bringToFront();
+    const startSummary: unknown = await extensionControl.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id === undefined) throw new Error("No active dynamic fixture tab");
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, frameIds: [0] },
+        files: ["assets/content-script.js"],
+      });
+      const response: unknown = await chrome.tabs.sendMessage(
+        tab.id,
+        {
+          protocolVersion: 1,
+          target: "content",
+          type: "content.command",
+          requestId: crypto.randomUUID(),
+          command: "start",
+        },
+        { frameId: 0 },
+      );
+      return response;
+    });
+    expect(startSummary).toMatchObject({
+      state: "active",
+      eligibleNodes: 1,
+      processedNodes: 1,
+      failedNodes: 0,
+    });
+    await expect(page.locator("#initial")).toHaveText("toukyou");
+
+    await page.evaluate(() => {
+      const initial = document.querySelector("#initial")?.firstChild;
+      if (!(initial instanceof Text)) throw new Error("Missing initial text node");
+      initial.data = "大阪";
+    });
+    await expect(page.locator("#initial")).toHaveText("oosaka");
+
+    await page.evaluate(() => {
+      const lyrics = document.querySelector("#lyrics");
+      const root = document.querySelector("#dynamic-root");
+      if (lyrics === null || root === null) throw new Error("Missing dynamic nodes");
+      lyrics.textContent = "星座になれたら";
+      const subtree = document.createElement("section");
+      subtree.innerHTML = "<span>愛してる</span><span>東京</span>";
+      root.append(subtree);
+    });
+    await expect(page.locator("#lyrics")).toHaveText("seiza ni naretara");
+    await expect(page.locator("#dynamic-root section")).toHaveText(
+      "aishiteru toukyou",
+    );
+    await page.evaluate(() => history.pushState({}, "", "#lyrics-next"));
+
+    await page.evaluate(() => {
+      const root = document.querySelector("#dynamic-root");
+      if (root === null) throw new Error("Missing dynamic root");
+      const stress = document.createElement("section");
+      stress.id = "mutation-stress";
+      stress.innerHTML = Array.from(
+        { length: 1_000 },
+        () => "<span data-stress>東京</span>",
+      ).join("");
+      root.append(stress);
+      window.dynamicStressStart = performance.now();
+      window.dynamicLongTasks = [];
+      if ("PerformanceObserver" in window) {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            window.dynamicLongTasks.push(entry.duration);
+          }
+        });
+        observer.observe({ type: "longtask" });
+      }
+    });
+    await expect(page.locator("#mutation-stress [data-stress]")).toHaveCount(1_000);
+    await expect
+      .poll(
+        async () =>
+          page
+            .locator("#mutation-stress [data-stress]")
+            .evaluateAll((nodes) =>
+              nodes.filter((node) => node.textContent.trim() === "toukyou").length,
+            ),
+        { timeout: 10_000 },
+      )
+      .toBe(1_000);
+    const stressSummary = await page.evaluate(() => ({
+      nodes: document.querySelectorAll("#mutation-stress [data-stress]").length,
+      longTasks: window.dynamicLongTasks.length,
+      drainMs: performance.now() - window.dynamicStressStart,
+    }));
+    expect(stressSummary.nodes).toBe(1_000);
+    expect(stressSummary.longTasks).toBe(0);
+    expect(stressSummary.drainMs).toBeLessThan(10_000);
+    console.log("dynamic mutation stress", stressSummary);
+
+    await page.evaluate(() => {
+      const replacement = document.createElement("span");
+      replacement.textContent = "今日はいい天気です";
+      const replacementRoot = document.querySelector("#replacement");
+      const exclusions = document.querySelector("#exclusions");
+      if (replacementRoot === null || exclusions === null) {
+        throw new Error("Missing dynamic replacement nodes");
+      }
+      replacementRoot.replaceChildren(replacement);
+      exclusions.innerHTML =
+        "<code>東京</code><pre>愛してる</pre><input value='東京'><span contenteditable='true'>大阪</span>";
+    });
+    await expect(page.locator("#replacement")).toHaveText(
+      "kyou wa ii tenkidesu",
+    );
+    await expect(page.locator("#exclusions code")).toHaveText("東京");
+    await expect(page.locator("#exclusions pre")).toHaveText("愛してる");
+    await expect(page.locator("#exclusions input")).toHaveValue("東京");
+    await expect(page.locator("#exclusions span")).toHaveText("大阪");
+
+    await page.evaluate(() => {
+      const initial = document.querySelector("#initial")?.firstChild;
+      if (!(initial instanceof Text)) throw new Error("Missing initial text node");
+      initial.data = "京都";
+    });
+    await expect(page.locator("#initial")).toHaveText("kyouto");
+
+    await page.bringToFront();
+    const stopSummary: unknown = await extensionControl.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id === undefined) throw new Error("No active dynamic fixture tab");
+      const response: unknown = await chrome.tabs.sendMessage(
+        tab.id,
+        {
+          protocolVersion: 1,
+          target: "content",
+          type: "content.command",
+          requestId: crypto.randomUUID(),
+          command: "stop",
+        },
+        { frameId: 0 },
+      );
+      return response;
+    });
+    expect(stopSummary).toMatchObject({ state: "original" });
+    await expect(page.locator("#initial")).toHaveText("京都");
+    await expect(page.locator("#lyrics")).toHaveText("星座になれたら");
+    await expect(page.locator("#replacement")).toHaveText("今日はいい天気です");
+  } finally {
+    await context.close();
+    await new Promise<void>((resolveClose, rejectClose) => {
+      server.close((error) => (error === undefined ? resolveClose() : rejectClose(error)));
+    });
+  }
+});
+
 test("5,000-node scan stays sliced and within the page-side memory budget", async () => {
   const largeFixture = `<!doctype html><html lang="ja"><body><main>${Array.from(
     { length: 5_000 },
@@ -625,6 +828,8 @@ interface Window {
   fixtureOriginalNode: ChildNode;
   fixtureClicks: number;
   fixtureLongTasks: number[];
+  dynamicLongTasks: number[];
+  dynamicStressStart: number;
   hardeningOriginalNode: ChildNode;
   hardeningClicks: number;
 }

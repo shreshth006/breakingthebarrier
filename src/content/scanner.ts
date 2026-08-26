@@ -97,12 +97,22 @@ export interface ScanResult {
   readonly diagnostics: ScanDiagnostics;
 }
 
+export type ScanRoot = Document | Element | DocumentFragment;
+
 export async function collectEligibleTextNodes(
-  root: Document,
+  root: ScanRoot,
   scheduler: SliceScheduler = browserSliceScheduler,
   limits: SliceLimits = defaultSliceLimits,
 ): Promise<ScanResult> {
-  const walker = root.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const ownerDocument =
+    root.nodeType === Node.DOCUMENT_NODE ? (root as Document) : root.ownerDocument;
+  if (ownerDocument === null) {
+    return {
+      nodes: [],
+      diagnostics: { visitedNodes: 0, sliceCount: 0, maximumSliceMs: 0 },
+    };
+  }
+  const walker = ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: Text[] = [];
   let visitedNodes = 0;
   let sliceCount = 0;
