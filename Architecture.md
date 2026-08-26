@@ -3,7 +3,7 @@
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-26
 - **Target:** Chromium desktop, Manifest V3
-- **Implementation status:** Phase 0 complete; Phase 1 not started
+- **Implementation status:** Phases 0 and 1 complete; Phase 2 not started
 
 ## 1. Repository audit
 
@@ -657,7 +657,9 @@ Visibility policy is layered to avoid layout thrashing:
 
 1. structural and semantic checks first;
 2. script precheck second;
-3. a memoized computed-style check on the nearest element only for remaining candidates;
+3. native `checkVisibility()` with visibility/content-visibility checks for
+   remaining candidates, with a computed-style fallback for environments that
+   lack the API;
 4. no per-node `Range.getClientRects()` in normal scanning.
 
 Class-driven visibility changes that do not alter text are an explicit Phase 0/2 measurement question. The observer must not watch every attribute by default unless evidence shows that a bounded attribute strategy is affordable.
@@ -665,6 +667,28 @@ Class-driven visibility changes that do not alter text are an explicit Phase 0/2
 ### 11.4 Read/write separation
 
 DOM reads, engine messages, and DOM writes occur in separate stages. A write queue applies a bounded batch together and does not interleave computed-style reads. This reduces forced layout and makes mutation ownership predictable.
+
+### 11.5 Phase 1 verified static implementation
+
+Phase 1 implements the document-root subset of this pipeline. The main-frame
+content bundle is injected only after a user action and is guarded by one
+isolated-world controller singleton. Collection yields after an 8 ms or
+250-node bound, writes yield every 100 nodes, and the frame client partitions
+requests at the existing 100-item/20,000-UTF-16 protocol limits. A 256-entry
+memory-only LRU uses a namespace containing the accepted engine, dictionary,
+romanization, and spacing versions; concurrent identical misses coalesce.
+
+The Replace renderer changes `Text.data` only. A WeakMap plus iterable active
+set tracks source, rendered value, revision, and session epoch. Stop restores
+only values still owned by the renderer; a newer page write wins. The packaged
+static fixture verified mixed-text preservation, excluded regions, node
+identity, event listeners, offline processing, exact restoration, and clean
+processor release.
+
+The 5,000-node Chromium fixture measured 2.7 MiB retained renderer growth after
+diagnostic garbage collection, 18.1 MiB total Chromium PSS movement, and no
+observed long task over 50 ms. Mutation observation, dynamic reclassification,
+and incremental drains remain Phase 2 work.
 
 ## 12. Dynamic mutation pipeline
 
@@ -1425,6 +1449,25 @@ dictionary/correctness policy.
 **Trade-offs:** Active Japanese sessions have a substantial shared memory cost.
 The explicit exception is bounded, regression-tested, isolated from page-side
 budgets, and reclaimed when the processor is released.
+
+### D-13 — Tokenize supported Japanese runs, preserve all other page text
+
+**Decision:** Pass only Japanese script runs and adjacent Japanese punctuation
+to Lindera. Preserve surrounding Latin text, numbers, whitespace, punctuation,
+emoji, and other unsupported spans exactly, with source-aligned passthrough
+segments.
+
+**Reason:** A Phase 1 browser fixture proved that passing an arbitrary
+emoji-bearing mixed page string directly to Lindera can stall the WASM
+tokenizer. Run isolation preserves product semantics and keeps the protection
+inside the reusable engine boundary for DOM and future OCR callers.
+
+**Alternatives considered:** Sanitize or drop unsupported characters, split
+only in the content controller, or accept worker timeouts for mixed text.
+
+**Trade-offs:** Linguistic context does not cross a non-Japanese run boundary;
+that boundary is preferable to altering unsupported content or hanging the
+processor.
 
 ## 28. Scenario validation
 

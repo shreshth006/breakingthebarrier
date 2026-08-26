@@ -69,7 +69,7 @@ const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 assert(manifest.manifest_version === 3, "Built manifest must use Manifest V3");
 assert(manifest.minimum_chrome_version === "109", "Unexpected minimum Chrome version");
 assert(!Object.hasOwn(manifest, "host_permissions"), "Persistent host permissions are forbidden");
-assert(!Object.hasOwn(manifest, "content_scripts"), "Phase 0 must not inject content scripts");
+assert(!Object.hasOwn(manifest, "content_scripts"), "Persistent static content scripts are forbidden");
 assert(!Object.hasOwn(manifest, "externally_connectable"), "External messaging is forbidden");
 
 assert(
@@ -95,6 +95,7 @@ assert(
 await Promise.all([
   assertFile(join(distRoot, manifest.background.service_worker)),
   assertFile(join(distRoot, manifest.action.default_popup)),
+  assertFile(join(distRoot, "assets/content-script.js")),
   assertFile(join(distRoot, "src/processor/offscreen.html")),
   assertFile(
     join(

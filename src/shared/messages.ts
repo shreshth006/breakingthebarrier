@@ -130,6 +130,58 @@ export interface ProcessorMemoryStageEvent {
   readonly stage: ProcessorMemoryStage;
 }
 
+export type PageCommand = "start" | "stop" | "status";
+export type FrameSessionState =
+  | "original"
+  | "inspecting"
+  | "starting"
+  | "active"
+  | "degraded"
+  | "stopping";
+export type PageStatusReason =
+  | "no-supported-text"
+  | "processor-failure"
+  | "restricted-page"
+  | null;
+
+export interface FrameSessionSummary {
+  readonly state: FrameSessionState;
+  readonly reason: PageStatusReason;
+  readonly eligibleNodes: number;
+  readonly processedNodes: number;
+  readonly failedNodes: number;
+}
+
+export interface PageCommandRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "page.command";
+  readonly requestId: string;
+  readonly command: PageCommand;
+}
+
+export interface ContentCommandRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "content";
+  readonly type: "content.command";
+  readonly requestId: string;
+  readonly command: PageCommand;
+}
+
+export interface ContentCommandResponse extends FrameSessionSummary {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "content.command.response";
+  readonly requestId: string;
+}
+
+export interface PageCommandResponse extends FrameSessionSummary {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "popup";
+  readonly type: "page.command.response";
+  readonly requestId: string;
+}
+
 export interface TransliterationBatchRequest {
   readonly protocolVersion: typeof PROTOCOL_VERSION;
   readonly target: "serviceWorker";
@@ -178,6 +230,66 @@ export function createProcessorEnsureRequest(
     target: "serviceWorker",
     type: "processor.ensure",
     requestId,
+  };
+}
+
+export function createPageCommandRequest(
+  requestId: string,
+  command: PageCommand,
+): PageCommandRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "page.command",
+    requestId,
+    command,
+  };
+}
+
+export function createContentCommandRequest(
+  requestId: string,
+  command: PageCommand,
+): ContentCommandRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "content",
+    type: "content.command",
+    requestId,
+    command,
+  };
+}
+
+export function createContentCommandResponse(
+  requestId: string,
+  summary: FrameSessionSummary,
+): ContentCommandResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "content.command.response",
+    requestId,
+    state: summary.state,
+    reason: summary.reason,
+    eligibleNodes: summary.eligibleNodes,
+    processedNodes: summary.processedNodes,
+    failedNodes: summary.failedNodes,
+  };
+}
+
+export function createPageCommandResponse(
+  requestId: string,
+  summary: FrameSessionSummary,
+): PageCommandResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "popup",
+    type: "page.command.response",
+    requestId,
+    state: summary.state,
+    reason: summary.reason,
+    eligibleNodes: summary.eligibleNodes,
+    processedNodes: summary.processedNodes,
+    failedNodes: summary.failedNodes,
   };
 }
 

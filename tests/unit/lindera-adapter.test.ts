@@ -88,4 +88,43 @@ describe("Japanese Lindera adapter", () => {
     expect(result?.warnings).toEqual(["unknown-reading"]);
     expect(result?.segments[0]?.reading).toBeNull();
   });
+
+  it("tokenizes only Japanese runs and preserves arbitrary surrounding text", async () => {
+    const tokenized: string[] = [];
+    const adapter = new JapaneseLinderaAdapter(
+      {
+        tokenize: (source) => {
+          tokenized.push(source);
+          return [
+            token("東京", 0, 6, [
+              "名詞",
+              "固有名詞",
+              "地域",
+              "一般",
+              "*",
+              "*",
+              "東京",
+              "トウキョウ",
+              "トーキョー",
+            ]),
+          ];
+        },
+      },
+      "5.3.0",
+    );
+
+    const [result] = await adapter.transliterate([
+      {
+        itemId: "mixed",
+        source: "  English 東京 123 🎵  ",
+        language: "ja",
+        romanizationPolicy: "ascii-hepburn-v1",
+      },
+    ]);
+
+    expect(tokenized).toEqual(["東京"]);
+    expect(result?.rendered).toBe("  English toukyou 123 🎵  ");
+    expect(result?.segments.map((segment) => segment.source).join(""))
+      .toBe("  English 東京 123 🎵  ");
+  });
 });

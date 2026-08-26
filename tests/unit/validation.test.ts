@@ -5,6 +5,10 @@ import {
   PROTOCOL_VERSION,
 } from "../../src/shared/config";
 import {
+  createContentCommandRequest,
+  createContentCommandResponse,
+  createPageCommandRequest,
+  createPageCommandResponse,
   createProcessorBatchRequest,
   createProcessorBatchResponse,
   createProcessorEnsureRequest,
@@ -22,7 +26,11 @@ import {
 } from "../../src/shared/messages";
 import {
   getMessageTarget,
+  validateContentCommandRequest,
+  validateContentCommandResponse,
   validateHealthErrorResponse,
+  validatePageCommandRequest,
+  validatePageCommandResponse,
   validateProcessorBatchRequest,
   validateProcessorBatchResponse,
   validateProcessorEnsureRequest,
@@ -90,6 +98,40 @@ const transliterationResults = [
 ] as const;
 
 describe("runtime message validation", () => {
+  it("validates page and content command boundaries", () => {
+    const summary = {
+      state: "active",
+      reason: null,
+      eligibleNodes: 4,
+      processedNodes: 3,
+      failedNodes: 1,
+    } as const;
+    const pageRequest = createPageCommandRequest("page-1", "start");
+    const contentRequest = createContentCommandRequest("page-1", "start");
+    const contentResponse = createContentCommandResponse("page-1", summary);
+    const pageResponse = createPageCommandResponse("page-1", summary);
+
+    expect(validatePageCommandRequest(pageRequest)).toEqual({
+      ok: true,
+      value: pageRequest,
+    });
+    expect(validateContentCommandRequest(contentRequest)).toEqual({
+      ok: true,
+      value: contentRequest,
+    });
+    expect(validateContentCommandResponse(contentResponse)).toEqual({
+      ok: true,
+      value: contentResponse,
+    });
+    expect(validatePageCommandResponse(pageResponse)).toEqual({
+      ok: true,
+      value: pageResponse,
+    });
+    expect(
+      validatePageCommandResponse({ ...pageResponse, failedNodes: 5 }).ok,
+    ).toBe(false);
+  });
+
   it("accepts a bounded processor ensure request", () => {
     const request = createProcessorEnsureRequest("request-1");
 

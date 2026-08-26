@@ -17,6 +17,16 @@ export const PROCESSOR_PROBE_TIMEOUT_MS = 15_000;
 export const PROCESSOR_BATCH_TIMEOUT_MS = 15_000;
 export const PROCESSOR_MEMORY_DIAGNOSTIC_STAGE_PAUSE_MS = 300;
 
+export const CONTENT_SCAN_SLICE_BUDGET_MS = 8;
+export const CONTENT_SCAN_SLICE_NODE_LIMIT = 250;
+export const CONTENT_WRITE_SLICE_NODE_LIMIT = 100;
+export const CONTENT_FRAME_CACHE_CAPACITY = 256;
+export const CONTENT_JAPANESE_CACHE_NAMESPACE =
+  "ja:lindera-5.3.0:ipadic-5.3.0:ascii-hepburn-v1:japanese-spacing-v1";
+export const CONTENT_SCRIPT_PATH = "assets/content-script.js";
+export const CONTENT_IGNORE_ATTRIBUTE = "data-btb-ignore";
+export const ACTIVE_FRAME_SESSION_STORAGE_KEY = "activeFrameSessionsV1";
+
 export const INTERNAL_KANA_PROBE = "とうきょう";
 
 export const INTERNAL_ROMAJI_PROBE = "toukyou";

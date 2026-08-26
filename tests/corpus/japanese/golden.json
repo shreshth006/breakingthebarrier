@@ -56,6 +56,13 @@
     "rationale": "Preserves contiguous Latin letters and numbers while romanizing the Japanese token."
   },
   {
+    "source": "  English 愛してる 123 🎵  ",
+    "expected": "  English aishiteru 123 🎵  ",
+    "category": "mixed-script",
+    "gate": "dictionary-required",
+    "rationale": "Tokenizes only Japanese runs while preserving exact whitespace, Latin text, numbers, and emoji."
+  },
+  {
     "source": "がっこう",
     "expected": "gakkou",
     "category": "kana-control",

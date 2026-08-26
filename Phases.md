@@ -1,8 +1,8 @@
 # Breaking the Barrier — Implementation Phases
 
 - **Planning bootstrap:** Complete
-- **Current implementation phase:** Phase 0 — complete
-- **Next phase:** Phase 1 — ready to start, not started
+- **Current implementation phase:** Phase 1 — complete
+- **Next phase:** Phase 2 — ready to start, not started
 - **Last updated:** 2026-08-26
 
 ## 1. Roadmap principles
@@ -55,7 +55,8 @@ initial Japanese processor exception is at most 180 MiB incremental Linux PSS.
 Five final Chromium 151/Linux runs measured 158.5–160.4 MiB steady and
 159.7–171.7 MiB peak, while explicit unload reclaimed 143.5–143.9 MiB. Package,
 quality, cold/warm latency, CSP, offline, provenance, boundary, teardown, and
-distribution checks passed. Phase 1 has not begun.
+distribution checks passed. Phase 1 subsequently completed without changing
+the accepted engine decision.
 
 ### Objective
 
@@ -153,7 +154,18 @@ The initial authoritative corpus includes at least:
 
 Do not begin Phase 1 until the Japanese engine path has a measured go decision. If Lindera fails, evaluate the smallest credible local alternative through the existing engine contract. Do not solve a failed local spike by silently introducing a server.
 
-## Phase 1 — Static Japanese DOM transliteration
+## Phase 1 — Static Japanese DOM transliteration (complete)
+
+**Completed:** 2026-08-26
+
+**Final gate:** The packaged extension now injects one idempotent main-frame
+controller after a user action, scans eligible static text in bounded slices,
+romanizes Japanese locally, preserves mixed and excluded content, and restores
+still-owned `Text.data` exactly. Stale and in-flight results are rejected,
+individual failures remain original, and processor sessions are released only
+when no tracked active tab remains. The 5,000-node Chromium fixture measured
+2.7 MiB retained renderer growth, 18.1 MiB total PSS movement, and zero observed
+long tasks over 50 ms. Phase 2 dynamic observation has not begun.
 
 ### Objective
 

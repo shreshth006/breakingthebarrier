@@ -6,7 +6,15 @@ import { createBtbError } from "./errors";
 import type { BtbError } from "./errors";
 import type {
   HealthErrorResponse,
+  ContentCommandRequest,
+  ContentCommandResponse,
+  FrameSessionState,
+  FrameSessionSummary,
   MessageTarget,
+  PageCommand,
+  PageCommandRequest,
+  PageCommandResponse,
+  PageStatusReason,
   ProcessorMemoryDiagnosticInternalRequest,
   ProcessorMemoryDiagnosticInternalResponse,
   ProcessorMemoryDiagnosticRequest,
@@ -84,6 +92,185 @@ export function getMessageTarget(value: unknown): MessageTarget | null {
   }
 
   return null;
+}
+
+function readPageCommand(value: unknown): PageCommand | null {
+  return value === "start" || value === "stop" || value === "status"
+    ? value
+    : null;
+}
+
+function readFrameSessionState(value: unknown): FrameSessionState | null {
+  return value === "original" ||
+    value === "inspecting" ||
+    value === "starting" ||
+    value === "active" ||
+    value === "degraded" ||
+    value === "stopping"
+    ? value
+    : null;
+}
+
+function readPageStatusReason(value: unknown): PageStatusReason | undefined {
+  return value === null ||
+    value === "no-supported-text" ||
+    value === "processor-failure" ||
+    value === "restricted-page"
+    ? value
+    : undefined;
+}
+
+function readNonnegativeInteger(value: unknown): number | null {
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : null;
+}
+
+function readFrameSessionSummary(
+  value: Record<string, unknown>,
+): FrameSessionSummary | null {
+  const state = readFrameSessionState(value.state);
+  const reason = readPageStatusReason(value.reason);
+  const eligibleNodes = readNonnegativeInteger(value.eligibleNodes);
+  const processedNodes = readNonnegativeInteger(value.processedNodes);
+  const failedNodes = readNonnegativeInteger(value.failedNodes);
+  if (
+    state === null ||
+    reason === undefined ||
+    eligibleNodes === null ||
+    processedNodes === null ||
+    failedNodes === null ||
+    processedNodes + failedNodes > eligibleNodes
+  ) {
+    return null;
+  }
+  return { state, reason, eligibleNodes, processedNodes, failedNodes };
+}
+
+function validateCommandRequestEnvelope(
+  value: unknown,
+  target: "serviceWorker" | "content",
+  type: "page.command" | "content.command",
+): ValidationResult<PageCommandRequest | ContentCommandRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const command = readPageCommand(value.command);
+  if (
+    !hasProtocol(value) ||
+    value.target !== target ||
+    value.type !== type ||
+    requestId === null ||
+    command === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return target === "serviceWorker"
+    ? {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "serviceWorker",
+          type: "page.command",
+          requestId,
+          command,
+        },
+      }
+    : {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "content",
+          type: "content.command",
+          requestId,
+          command,
+        },
+      };
+}
+
+export function validatePageCommandRequest(
+  value: unknown,
+): ValidationResult<PageCommandRequest> {
+  return validateCommandRequestEnvelope(
+    value,
+    "serviceWorker",
+    "page.command",
+  ) as ValidationResult<PageCommandRequest>;
+}
+
+export function validateContentCommandRequest(
+  value: unknown,
+): ValidationResult<ContentCommandRequest> {
+  return validateCommandRequestEnvelope(
+    value,
+    "content",
+    "content.command",
+  ) as ValidationResult<ContentCommandRequest>;
+}
+
+function validateCommandResponseEnvelope(
+  value: unknown,
+  target: "serviceWorker" | "popup",
+  type: "content.command.response" | "page.command.response",
+): ValidationResult<ContentCommandResponse | PageCommandResponse> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const summary = readFrameSessionSummary(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== target ||
+    value.type !== type ||
+    requestId === null ||
+    summary === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return target === "serviceWorker"
+    ? {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "serviceWorker",
+          type: "content.command.response",
+          requestId,
+          ...summary,
+        },
+      }
+    : {
+        ok: true,
+        value: {
+          protocolVersion: PROTOCOL_VERSION,
+          target: "popup",
+          type: "page.command.response",
+          requestId,
+          ...summary,
+        },
+      };
+}
+
+export function validateContentCommandResponse(
+  value: unknown,
+): ValidationResult<ContentCommandResponse> {
+  return validateCommandResponseEnvelope(
+    value,
+    "serviceWorker",
+    "content.command.response",
+  ) as ValidationResult<ContentCommandResponse>;
+}
+
+export function validatePageCommandResponse(
+  value: unknown,
+): ValidationResult<PageCommandResponse> {
+  return validateCommandResponseEnvelope(
+    value,
+    "popup",
+    "page.command.response",
+  ) as ValidationResult<PageCommandResponse>;
 }
 
 export function validateProcessorReleaseRequest(

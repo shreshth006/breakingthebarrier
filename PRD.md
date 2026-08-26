@@ -2,7 +2,7 @@
 
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-26
-- **Implementation status:** Phase 0 complete; Phase 1 ready to start
+- **Implementation status:** Phases 0 and 1 complete; Phase 2 ready to start
 
 ## 1. Product overview
 
@@ -247,8 +247,10 @@ Targets are validated on an agreed mid-tier reference laptop and representative 
   when no active session needs it.
 - Phase 1 page-side DOM bookkeeping, bounded caches, and queues must add no more
   than 20 MiB persistent extension-side memory on the agreed representative
-  fixture, measured separately from the loaded Japanese processor baseline,
-  unless a new documented exception is approved.
+  fixture, measured separately from the loaded Japanese processor baseline.
+  The completed 5,000-node Chromium gate measured 2.7 MiB retained renderer
+  growth after diagnostic collection, with 18.1 MiB total Chromium PSS movement
+  and no observed long task over 50 ms.
 - All caches are bounded and cleared when their owning worker or tab session ends.
 
 ### 10.3 Reliability

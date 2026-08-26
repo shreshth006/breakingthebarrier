@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Static Japanese fixture</title>
+    <style>
+      [hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <main id="article" data-page-owned="preserved">
+      <h1 id="headline">星座になれたら</h1>
+      <p id="mixed">  English 愛してる 123 🎵  </p>
+      <button id="interactive" type="button">東京</button>
+      <code id="code">東京</code>
+      <pre id="pre">愛してる</pre>
+      <div id="editable" contenteditable="true">東京</div>
+      <div id="ignored" data-btb-ignore>愛してる</div>
+      <div id="hidden" hidden>東京</div>
+    </main>
+    <script>
+      window.fixtureOriginalNode = document.querySelector("#interactive").firstChild;
+      window.fixtureClicks = 0;
+      document.querySelector("#interactive").addEventListener("click", () => {
+        window.fixtureClicks += 1;
+      });
+    </script>
+  </body>
+</html>

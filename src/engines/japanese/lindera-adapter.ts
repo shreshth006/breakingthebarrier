@@ -14,6 +14,35 @@ import {
   JAPANESE_SPACING_POLICY_VERSION,
 } from "./spacing";
 
+const TOKENIZABLE_JAPANESE_RUN =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\u30fc\uff65-\uff9f]+/gu;
+const JAPANESE_CORE =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\uff66-\uff9f]/u;
+
+interface JapaneseRun {
+  readonly start: number;
+  readonly end: number;
+  readonly source: string;
+}
+
+export function findTokenizableJapaneseRuns(
+  source: string,
+): readonly JapaneseRun[] {
+  const runs: JapaneseRun[] = [];
+  for (const match of source.matchAll(TOKENIZABLE_JAPANESE_RUN)) {
+    const value = match[0];
+    if (!JAPANESE_CORE.test(value)) {
+      continue;
+    }
+    runs.push({
+      start: match.index,
+      end: match.index + value.length,
+      source: value,
+    });
+  }
+  return runs;
+}
+
 export interface LinderaTokenizerAdapter {
   tokenize(source: string): readonly LinderaTokenData[];
 }
@@ -50,27 +79,63 @@ export class JapaneseLinderaAdapter implements TransliterationEngine {
       throw new Error("Unsupported Japanese transliteration request");
     }
 
-    const tokens = mapIpadicTokens(
-      request.source,
-      this.tokenizer.tokenize(request.source),
-    );
-    const hasUnknownHan = tokens.some(
-      (token) => token.reading === null && /\p{Script=Han}/u.test(token.source),
-    );
+    const runs = findTokenizableJapaneseRuns(request.source);
+    const segments: TransliterationResult["segments"][number][] = [];
+    const renderedParts: string[] = [];
+    let sourceCursor = 0;
+    let hasUnknownHan = false;
+
+    for (const run of runs) {
+      if (run.start > sourceCursor) {
+        const preserved = request.source.slice(sourceCursor, run.start);
+        renderedParts.push(preserved);
+        segments.push({
+          start: sourceCursor,
+          end: run.start,
+          source: preserved,
+          reading: null,
+          romanized: null,
+        });
+      }
+      const tokens = mapIpadicTokens(
+        run.source,
+        this.tokenizer.tokenize(run.source),
+      );
+      renderedParts.push(formatJapaneseTokens(run.source, tokens));
+      for (const token of tokens) {
+        if (
+          token.reading === null &&
+          /\p{Script=Han}/u.test(token.source)
+        ) {
+          hasUnknownHan = true;
+        }
+        segments.push({
+          start: run.start + token.start,
+          end: run.start + token.end,
+          source: token.source,
+          reading: token.reading,
+          romanized: token.romanized,
+        });
+      }
+      sourceCursor = run.end;
+    }
+    if (sourceCursor < request.source.length) {
+      const preserved = request.source.slice(sourceCursor);
+      renderedParts.push(preserved);
+      segments.push({
+        start: sourceCursor,
+        end: request.source.length,
+        source: preserved,
+        reading: null,
+        romanized: null,
+      });
+    }
 
     return {
       itemId: request.itemId,
       source: request.source,
-      rendered: formatJapaneseTokens(request.source, tokens),
-      segments: tokens.map(
-        ({ start, end, source, reading, romanized }) => ({
-          start,
-          end,
-          source,
-          reading,
-          romanized,
-        }),
-      ),
+      rendered: renderedParts.join(""),
+      segments,
       warnings: hasUnknownHan ? ["unknown-reading"] : [],
       versions: {
         engine: this.engineVersion,

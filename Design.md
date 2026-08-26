@@ -569,12 +569,12 @@ toukyou
 - Minimal status popup for development only.
 - No injected page UI.
 
-### Phase 1
+### Phase 1 (complete)
 
 - Minimal popup start/stop controls.
 - No remembered-site permission or polished prompt.
 
-### Phase 2
+### Phase 2 (next)
 
 - Existing controls show dynamic health in a development build.
 - No new product surface is required for observer internals.

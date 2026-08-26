@@ -17,6 +17,10 @@ const dictionaryCases = [
   { source: "私は東京へ行く。", expected: "watashi wa toukyou e iku。" },
   { source: "山田太郎", expected: "yamada tarou" },
   { source: "ABC東京123", expected: "ABCtoukyou123" },
+  {
+    source: "  English 愛してる 123 🎵  ",
+    expected: "  English aishiteru 123 🎵  ",
+  },
 ] as const;
 
 async function readBrowserPssMiB(session: CDPSession): Promise<number> {
@@ -199,13 +203,10 @@ test("packaged popup starts the local Lindera worker", async () => {
       },
     });
 
-    await popup.getByRole("button", { name: "Check local processor" }).click();
-
-    await expect(popup.getByRole("status")).toContainText(
-      "Ready · Lindera 5.3.0 · WanaKana 5.3.1",
-      { timeout: 12_000 },
-    );
-    await expect(popup.getByText("This build does not read")).toBeVisible();
+    await expect(
+      popup.getByRole("button", { name: "Romanize this page" }),
+    ).toBeVisible();
+    await expect(popup.getByText("Romanize readable Japanese")).toBeVisible();
   } finally {
     await context.close();
   }

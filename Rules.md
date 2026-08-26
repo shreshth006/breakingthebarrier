@@ -115,6 +115,9 @@ These rules are non-negotiable.
 - Never infer that all Han text is Japanese.
 - Respect explicit language settings and `lang` evidence before document heuristics.
 - Preserve unsupported runs exactly.
+- Never pass arbitrary mixed page strings directly to a language analyzer that
+  cannot safely consume every script. Tokenize only supported runs and emit
+  source-aligned passthrough segments for everything else.
 - Japanese Kanji readings require contextual tokenization. Do not add per-character Kanji substitution as a fallback.
 - An unknown Han-bearing token without a reliable reading stays original and produces a structured internal warning.
 - Do not expose an invented numeric language or reading confidence.
