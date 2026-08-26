@@ -171,9 +171,9 @@ Phase 0 retained processor reference remains:
 
 Final release gates:
 
-- `npm run test` — 14 Vitest files with 92 passing tests, including dynamic
+- `npm run test` — 14 Vitest files with 93 passing tests, including dynamic
   same-node, subtree, replacement, self-write, stop, and cleanup regressions.
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 92 unit
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 93 unit
   tests, both production bundles, and the distribution
   inventory all passed.
 - `npm run test:integration` — all six packaged Chromium tests passed: the

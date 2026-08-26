@@ -250,6 +250,32 @@ describe("static frame controller", () => {
     expect(node.data).toBe("大阪");
   });
 
+  it("coalesces a rapid same-node mutation burst to the latest source", async () => {
+    document.documentElement.lang = "ja";
+    document.body.innerHTML = `<p id="target">東京</p>`;
+    const node = document.querySelector("#target")?.firstChild;
+    if (!(node instanceof Text)) throw new Error("Missing rapid mutation fixture");
+    const controller = new FrameController(
+      document,
+      new FakeEngine(
+        new Map([
+          ["東京", result("東京", "toukyou")],
+          ["大阪", result("大阪", "oosaka")],
+          ["京都", result("京都", "kyouto")],
+          ["名古屋", result("名古屋", "nagoya")],
+        ]),
+      ),
+    );
+    await controller.start();
+    node.data = "大阪";
+    node.data = "京都";
+    node.data = "名古屋";
+    await flushDynamicWork();
+    expect(node.data).toBe("nagoya");
+    controller.stop();
+    expect(node.data).toBe("名古屋");
+  });
+
   it("processes added text, added subtrees, and replacement nodes incrementally", async () => {
     document.documentElement.lang = "ja";
     document.body.innerHTML = `<main id="root"><p id="lyrics"></p></main>`;
