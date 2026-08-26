@@ -5,7 +5,10 @@ import type {
   PageStatusReason,
 } from "../shared/messages";
 import { CONTENT_WRITE_SLICE_NODE_LIMIT } from "../shared/config";
-import { replaceRenderer } from "../renderers/replace";
+import {
+  applyInlineBoundarySpacing,
+  replaceRenderer,
+} from "../renderers/replace";
 import type { Renderer } from "../renderers/contracts";
 import { LocalFrameEngineClient } from "./engine-client";
 import type { FrameEngineClient } from "./engine-client";
@@ -145,6 +148,10 @@ export class FrameController {
         await this.#scheduler.yield();
       }
     }
+    applyInlineBoundarySpacing(
+      snapshots.map(({ node }) => node),
+      this.#registry,
+    );
     this.#registry.clearUnrendered(scan.nodes);
     if (epoch !== this.#sessionEpoch) {
       return this.status();

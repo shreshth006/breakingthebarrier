@@ -2,7 +2,7 @@
 
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-26
-- **Implementation status:** Phases 0 and 1 complete; Phase 2 ready to start
+- **Implementation status:** Phases 0 and 1 complete; Phase 1 hardened; Phase 2 ready to start
 
 ## 1. Product overview
 
@@ -163,6 +163,9 @@ Spotlight captures a small region around a stationary pointer after a deliberate
 
 - **FR-JA-01:** The initial V2 Japanese engine must use contextual morphological analysis for Kanji readings rather than character substitution.
 - **FR-JA-02:** The default output must use the product's ASCII Hepburn policy: familiar Hepburn spellings, vowel sequences such as `toukyou`, and grammatical particle pronunciation where the analyzer supplies reliable part-of-speech context.
+- **FR-JA-02a:** The policy may pass directly adjacent numeric context to the analyzer for
+  counter readings while preserving Arabic number surfaces, and uses familiar
+  compact spellings for supported extended Katakana loanword sounds.
 - **FR-JA-03:** The engine must preserve source and token offsets so future renderers can align readings with original text.
 - **FR-JA-04:** Unknown Kanji tokens without a reliable reading must remain original and carry an internal warning; they must not receive a guessed per-character reading.
 - **FR-JA-05:** The engine must be replaceable behind a stable language-engine contract.
@@ -248,9 +251,10 @@ Targets are validated on an agreed mid-tier reference laptop and representative 
 - Phase 1 page-side DOM bookkeeping, bounded caches, and queues must add no more
   than 20 MiB persistent extension-side memory on the agreed representative
   fixture, measured separately from the loaded Japanese processor baseline.
-  The completed 5,000-node Chromium gate measured 2.7 MiB retained renderer
-  growth after diagnostic collection, with 18.1 MiB total Chromium PSS movement
-  and no observed long task over 50 ms.
+  The completed hardening gate measured 3.4 MiB retained renderer growth after
+  diagnostic collection, with 20.6 MiB aggregate Chromium PSS movement and no
+  observed long task over 50 ms. Aggregate PSS is reported separately from the
+  retained page-side budget.
 - All caches are bounded and cleared when their owning worker or tab session ends.
 
 ### 10.3 Reliability

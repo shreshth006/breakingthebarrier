@@ -119,6 +119,31 @@ describe("static frame controller", () => {
     expect(document.querySelector("#two")?.textContent).toBe("愛してる");
   });
 
+  it("adds only safe inline boundary spaces and removes them on restore", async () => {
+    document.documentElement.lang = "ja";
+    document.body.innerHTML =
+      `<p id="inline"><span id="first">東京</span><span id="second">です</span></p>` +
+      `<p id="blocks">東京</p><p id="next-block">です</p>`;
+    const controller = new FrameController(
+      document,
+      new FakeEngine(
+        new Map([
+          ["東京", result("東京", "toukyou")],
+          ["です", result("です", "desu")],
+        ]),
+      ),
+    );
+
+    await controller.start();
+    expect(document.querySelector("#inline")?.textContent).toBe("toukyou desu");
+    expect(document.querySelector("#second")?.textContent).toBe(" desu");
+    expect(document.querySelector("#next-block")?.textContent).toBe("desu");
+
+    controller.stop();
+    expect(document.querySelector("#inline")?.textContent).toBe("東京です");
+    expect(document.querySelector("#second")?.textContent).toBe("です");
+  });
+
   it("does not overwrite a newer page value with a stale result or restore", async () => {
     document.documentElement.lang = "ja";
     document.body.innerHTML = `<p id="target">東京</p>`;

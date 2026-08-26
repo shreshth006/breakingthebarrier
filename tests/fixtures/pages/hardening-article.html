@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Phase 1 hardening fixture</title>
+    <style>
+      [hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <main id="hardening-article">
+      <p id="inline-boundaries">ウィキペディアは<a id="who">誰でも編集できる</a><a id="free">フリー</a><a id="encyclopedia">百科事典</a>です</p>
+      <p id="counters">1928年 2024年 2月29日 490人 12名 24時間 第1回</p>
+      <p id="loanwords">ファーストライト フィクション インフォメーション ウィキペディア</p>
+      <p id="unknown-compounds">巨椋池 諏訪頼嗣 東京</p>
+      <p id="punctuation">東京。<span id="after-punctuation">です</span> English 123 🎵</p>
+      <code id="excluded">ファースト 東京</code>
+      <div id="page-owned" data-page-owned="preserved">東京</div>
+    </main>
+    <script>
+      window.hardeningOriginalNode = document.querySelector("#page-owned").firstChild;
+      window.hardeningClicks = 0;
+      document.querySelector("#page-owned").addEventListener("click", () => {
+        window.hardeningClicks += 1;
+      });
+    </script>
+  </body>
+</html>

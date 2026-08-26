@@ -63,6 +63,97 @@
     "rationale": "Tokenizes only Japanese runs while preserving exact whitespace, Latin text, numbers, and emoji."
   },
   {
+    "source": "1928年",
+    "expected": "1928 nen",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Passes adjacent digits to Lindera so 年 receives the counter reading ネン while digits remain unchanged."
+  },
+  {
+    "source": "2024年",
+    "expected": "2024 nen",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Regression for year context that previously produced 2024toshi."
+  },
+  {
+    "source": "2月29日",
+    "expected": "2 gatsu 29 nichi",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Date counters retain Arabic digits and use bounded numeric-context spacing."
+  },
+  {
+    "source": "490人",
+    "expected": "490 nin",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Regression for 人 reading with a directly adjacent number."
+  },
+  {
+    "source": "12名",
+    "expected": "12 mei",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Regression for 名 reading with a directly adjacent number."
+  },
+  {
+    "source": "24時間",
+    "expected": "24 jikan",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Counter-like suffix remains readable while preserving the source number."
+  },
+  {
+    "source": "第1回",
+    "expected": "dai 1 kai",
+    "category": "numeric-context",
+    "gate": "dictionary-required",
+    "rationale": "Ordinal prefix and counter receive readable boundaries around the original digit."
+  },
+  {
+    "source": "ファーストライト",
+    "expected": "faasuto raito",
+    "category": "katakana-loanword",
+    "gate": "dictionary-required",
+    "rationale": "Product-owned extended-Katakana policy maps ファ to fa while preserving lexical token spacing."
+  },
+  {
+    "source": "フィクション",
+    "expected": "fikushon",
+    "category": "katakana-loanword",
+    "gate": "dictionary-required",
+    "rationale": "Product-owned extended-Katakana policy maps フィ to fi."
+  },
+  {
+    "source": "インフォメーション",
+    "expected": "infomeeshon",
+    "category": "katakana-loanword",
+    "gate": "dictionary-required",
+    "rationale": "Product-owned extended-Katakana policy maps フォ to fo without arbitrary output-wide replacements."
+  },
+  {
+    "source": "ウィキペディア",
+    "expected": "wikipedia",
+    "category": "katakana-loanword",
+    "gate": "dictionary-required",
+    "rationale": "Product-owned extended-Katakana policy maps ウィ and ディ to familiar ASCII forms."
+  },
+  {
+    "source": "巨椋池",
+    "expected": "巨椋池",
+    "category": "unknown-compound",
+    "gate": "dictionary-required",
+    "rationale": "An unresolved Han segment protects the contiguous compound from misleading partial romanization."
+  },
+  {
+    "source": "諏訪頼嗣",
+    "expected": "諏訪頼嗣",
+    "category": "unknown-compound",
+    "gate": "dictionary-required",
+    "rationale": "An unresolved trailing Han segment protects the complete contiguous compound."
+  },
+  {
     "source": "がっこう",
     "expected": "gakkou",
     "category": "kana-control",
@@ -75,5 +166,33 @@
     "category": "kana-control",
     "gate": "kana-adapter",
     "rationale": "Fixes syllabic-n disambiguation in the ASCII-Hepburn policy."
+  },
+  {
+    "source": "鳥羽市",
+    "expected": "toppashi",
+    "category": "proper-noun-quality",
+    "gate": "quality-review",
+    "rationale": "Representative place name; IPADIC output is recorded for review, not treated as a named-entity oracle."
+  },
+  {
+    "source": "桃取町",
+    "expected": "momotorimachi",
+    "category": "proper-noun-quality",
+    "gate": "quality-review",
+    "rationale": "Representative place name whose preferred reading may require a future proper-name lexicon."
+  },
+  {
+    "source": "藤原威子",
+    "expected": "fujiwara takeshi ko",
+    "category": "proper-noun-quality",
+    "gate": "quality-review",
+    "rationale": "Representative historical personal name; keep separate from deterministic vocabulary assertions."
+  },
+  {
+    "source": "承和",
+    "expected": "uketamawa wa",
+    "category": "proper-noun-quality",
+    "gate": "quality-review",
+    "rationale": "Representative era-name ambiguity; the recorded engine output is not a product guarantee."
   }
 ]

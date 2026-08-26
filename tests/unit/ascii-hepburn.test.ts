@@ -18,4 +18,26 @@ describe("ASCII Hepburn adapter", () => {
   ])("romanizes deterministic Kana %s", (source, expected) => {
     expect(romanizeKana(source)).toBe(expected);
   });
+
+  it.each([
+    ["ファ", "fa"],
+    ["フィ", "fi"],
+    ["フェ", "fe"],
+    ["フォ", "fo"],
+    ["ウィ", "wi"],
+    ["ウェ", "we"],
+    ["ウォ", "wo"],
+    ["ティ", "ti"],
+    ["ディ", "di"],
+    ["ファーストライト", "faasutoraito"],
+    ["フィクション", "fikushon"],
+    ["インフォメーション", "infomeeshon"],
+    ["ウィキペディア", "wikipedia"],
+  ])("applies the product extended-Katakana policy for %s", (source, expected) => {
+    expect(romanizeKana(source)).toBe(expected);
+  });
+
+  it("does not rewrite ordinary adjacent Kana as a loanword digraph", () => {
+    expect(romanizeKana("ふあ")).toBe("fua");
+  });
 });

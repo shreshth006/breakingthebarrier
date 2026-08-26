@@ -7,7 +7,7 @@ interface GoldenEntry {
   readonly source: string;
   readonly expected: string;
   readonly category: string;
-  readonly gate: "kana-adapter" | "dictionary-required";
+  readonly gate: "kana-adapter" | "dictionary-required" | "quality-review";
   readonly rationale: string;
 }
 
@@ -34,7 +34,9 @@ async function readCorpus(): Promise<readonly GoldenEntry[]> {
       typeof entry.source !== "string" ||
       typeof entry.expected !== "string" ||
       typeof entry.category !== "string" ||
-      (entry.gate !== "kana-adapter" && entry.gate !== "dictionary-required") ||
+      (entry.gate !== "kana-adapter" &&
+        entry.gate !== "dictionary-required" &&
+        entry.gate !== "quality-review") ||
       typeof entry.rationale !== "string"
     ) {
       throw new Error("Golden Japanese corpus entry is invalid");
@@ -70,5 +72,12 @@ describe("golden Japanese corpus", () => {
     for (const entry of kanaEntries) {
       expect(romanizeKana(entry.source)).toBe(entry.expected);
     }
+  });
+
+  it("keeps proper-name observations in a separate quality-review gate", async () => {
+    const corpus = await readCorpus();
+    const qualityEntries = corpus.filter((entry) => entry.gate === "quality-review");
+    expect(qualityEntries).toHaveLength(4);
+    expect(qualityEntries.every((entry) => entry.category === "proper-noun-quality")).toBe(true);
   });
 });

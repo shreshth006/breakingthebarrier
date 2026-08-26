@@ -22,7 +22,7 @@ import {
 interface GoldenEntry {
   readonly source: string;
   readonly expected: string;
-  readonly gate: "kana-adapter" | "dictionary-required";
+  readonly gate: "kana-adapter" | "dictionary-required" | "quality-review";
 }
 
 function requireFile(files: ReadonlyMap<string, Buffer>, name: string): Buffer {
@@ -115,5 +115,80 @@ describe("official Lindera IPADIC archive", () => {
         ),
       ),
     ).toBe(true);
+  });
+
+  it("keeps numeric context and protects uncertain compounds", async () => {
+    const files = await readVerifiedIpadicArchive();
+    const dictionary = loadDictionaryFromBytes(
+      requireFile(files, "metadata.json"),
+      requireFile(files, "dict.trie"),
+      requireFile(files, "dict.valsidx"),
+      requireFile(files, "dict.vals"),
+      requireFile(files, "dict.wordsidx"),
+      requireFile(files, "dict.words"),
+      requireFile(files, "matrix.mtx"),
+      requireFile(files, "char_def.bin"),
+      requireFile(files, "unk.bin"),
+    );
+    const builder = new TokenizerBuilder();
+    builder.setDictionaryInstance(dictionary);
+    builder.setMode("normal");
+    builder.setKeepWhitespace(true);
+    const tokenizer = builder.build();
+    const adapter = new JapaneseLinderaAdapter(
+      {
+        tokenize(source: string): readonly LinderaTokenData[] {
+          return tokenizer.tokenize(source).map((token) => {
+            try {
+              const value: unknown = token.toJSON();
+              return value as LinderaTokenData;
+            } finally {
+              token.free();
+            }
+          });
+        },
+      },
+      version(),
+    );
+    const sources = [
+      "1928年",
+      "2024年",
+      "2月29日",
+      "490人",
+      "12名",
+      "24時間",
+      "第1回",
+      "ファーストライト",
+      "フィクション",
+      "インフォメーション",
+      "ウィキペディア",
+      "巨椋池",
+      "諏訪頼嗣",
+    ] as const;
+    const results = await adapter.transliterate(
+      sources.map((source) => ({
+        itemId: source,
+        source,
+        language: "ja" as const,
+        romanizationPolicy: "ascii-hepburn-v1",
+      })),
+    );
+    expect(results.map((result) => result.rendered)).toEqual([
+      "1928 nen",
+      "2024 nen",
+      "2 gatsu 29 nichi",
+      "490 nin",
+      "12 mei",
+      "24 jikan",
+      "dai 1 kai",
+      "faasuto raito",
+      "fikushon",
+      "infomeeshon",
+      "wikipedia",
+      "巨椋池",
+      "諏訪頼嗣",
+    ]);
+    expect(results.at(-2)?.warnings).toEqual(["unknown-reading"]);
+    expect(results.at(-1)?.warnings).toEqual(["unknown-reading"]);
   });
 });

@@ -55,6 +55,7 @@ export interface JapaneseToken extends SourceAlignedSegment {
   readonly baseForm: string | null;
   readonly pronunciation: string | null;
   readonly isUnknown: boolean;
+  readonly isUnknownCompound: boolean;
 }
 
 function nullableDetail(value: string | undefined): string | null {
@@ -76,7 +77,14 @@ function selectReading(
   partOfSpeech: string,
   reading: string | null,
   pronunciation: string | null,
+  numericContext: boolean,
 ): string | null {
+  // IPADIC resolves 月 as ツキ even in a compact numeric date such as 2月.
+  // A directly adjacent number is sufficient morphological context for the
+  // counter reading ガツ; unrelated 月 remains untouched by this rule.
+  if (numericContext && surface === "月") {
+    return "ガツ";
+  }
   if (partOfSpeech === "助詞" && isKanaReading(pronunciation)) {
     return pronunciation;
   }
@@ -127,7 +135,7 @@ export function mapIpadicTokens(
 ): readonly JapaneseToken[] {
   const offsetMap = createUtf8ByteToUtf16Map(source);
 
-  return tokens.map((token) => {
+  return tokens.map((token, index) => {
     const start = offsetMap.get(token.byteStart);
     const end = offsetMap.get(token.byteEnd);
     if (start === undefined || end === undefined || start > end) {
@@ -144,11 +152,18 @@ export function mapIpadicTokens(
     const pronunciation = nullableDetail(
       detail(token, DETAIL_INDEX.pronunciation),
     );
+    const previous = tokens[index - 1];
+    const previousSurface = previous?.surface;
+    const numericContext =
+      previous?.byteEnd === token.byteStart &&
+      previousSurface !== undefined &&
+      /^\p{Number}+$/u.test(previousSurface);
     const reading = selectReading(
       surface,
       partOfSpeech,
       readingDetail,
       pronunciation,
+      numericContext,
     );
 
     return {
@@ -175,6 +190,7 @@ export function mapIpadicTokens(
       baseForm: nullableDetail(detail(token, DETAIL_INDEX.baseForm)),
       pronunciation,
       isUnknown: token.isUnknown,
+      isUnknownCompound: false,
     };
   });
 }

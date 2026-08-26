@@ -1,6 +1,6 @@
 # Current State
 
-Current phase: Phase 1 — complete
+Current phase: Phase 1 — complete + real-world hardened
 
 Current milestone: A user-invoked main-frame session can romanize eligible
 Japanese text on a static page locally, preserve mixed and excluded content,
@@ -37,6 +37,12 @@ source strings, and releases the processor after the final tracked session.
 - Fixed a discovered mixed-input stall by passing only supported Japanese runs
   to Lindera and emitting source-aligned passthrough segments for Latin text,
   numbers, whitespace, punctuation, emoji, and other unsupported content.
+- Hardened analyzer runs to include only adjacent numeric context, preserving
+  Arabic digits while restoring counter readings such as `1928 nen`, `2 gatsu`,
+  and `490 nin`.
+- Added a source-based extended-Katakana policy (`fa`, `fi`, `fo`, `wi`, `di`),
+  contiguous unknown-Han compound protection, and reversible inline-boundary
+  spaces for adjacent BTB-owned fragments.
 - Replaced the Phase 0 diagnostic popup with minimal Romanize/Show original
   controls and user-facing original, loading, active, partial, unsupported,
   restricted, and retryable states.
@@ -50,8 +56,15 @@ source strings, and releases the processor after the final tracked session.
   Japanese evidence. Script detection does not claim that every Han string is
   Japanese.
 - Lindera receives only Japanese script runs and adjacent Japanese punctuation.
-  Unsupported spans stay byte-for-byte equivalent at the JavaScript string
-  level and remain source aligned.
+  Adjacent numeric context is additionally allowed for morphology; unsupported
+  spans stay byte-for-byte equivalent at the JavaScript string level and remain
+  source aligned.
+- Unknown Han compounds are protected as a contiguous lexical boundary when any
+  segment is unresolved. Named-entity observations remain a separate quality
+  corpus rather than deterministic production rules.
+- Replace-mode boundary spacing is added only between adjacent BTB-owned text
+  nodes with ASCII word edges inside an inline layout boundary; it is stored in
+  node ownership state and disappears on restore.
 - The frame cache key namespace includes language, Lindera, IPADIC,
   romanization-policy, and spacing-policy versions. Page-derived entries remain
   in memory and clear on stop.
@@ -68,8 +81,9 @@ Phase 1 static 5,000-node fixture, with the Japanese processor pre-warmed and
 diagnostic garbage collection at both renderer baselines:
 
 - eligible and processed text nodes: 5,000 / 5,000;
-- retained renderer growth: 2.7 MiB against the 20 MiB page-side budget;
-- total Chromium PSS movement: 18.1 MiB;
+- retained renderer growth: 3.4 MiB against the 20 MiB page-side budget;
+- total Chromium PSS movement: 20.6 MiB (aggregate process movement, not the
+  page-side retained budget);
 - observed page long tasks over 50 ms: zero;
 - exact first-node restoration after stop: passed.
 
@@ -92,12 +106,16 @@ Phase 0 retained processor reference remains:
 - `src/content/node-state.ts`: source/revision/renderer ownership.
 - `src/detector/`: script and language evidence.
 - `src/renderers/replace.ts`: `Text.data`-only renderer.
+- `src/renderers/replace.ts`: `Text.data`-only renderer and conservative inline
+  boundary-spacing pass.
 - `src/engines/japanese/lindera-adapter.ts`: safe Japanese-run tokenization and
   mixed-span stitching.
 - `src/background/service-worker.ts`: injection, page commands, session
   bookkeeping, and processor lifecycle.
 - `tests/integration/static-dom.spec.ts`: packaged static article, offline,
   restoration, and 5,000-node performance gates.
+- `tests/fixtures/pages/hardening-article.html`: realistic counters, loanwords,
+  inline links, punctuation, and unknown-compound fixture.
 
 # Known Issues
 
@@ -130,12 +148,18 @@ Phase 0 retained processor reference remains:
 
 Final release gates:
 
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, 14 Vitest files
-  with 56 passing tests, both production bundles, and the 25-file distribution
+- `npm run test` — 14 Vitest files with 75 passing tests, including numeric
+  context, Katakana, unknown-compound, and renderer-boundary regressions.
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 75 unit
+  tests, both production bundles, and the distribution
   inventory all passed.
-- `npm run test:integration` — all four packaged Chromium tests passed: the
+- `npm run test:integration` — all five packaged Chromium tests passed: the
   staged and five-run processor lifecycle, offline engine and mixed-text path,
-  exact static DOM replacement/restoration, and the 5,000-node page-side gate.
+  exact static DOM replacement/restoration, the realistic hardening fixture,
+  and the 5,000-node page-side gate.
+- Ad hoc real-page Chromium smoke: `https://ja.wikipedia.org/wiki/メインページ`
+  reached `active` with 415 eligible/processed nodes and restored successfully;
+  only metadata was logged.
 - The packaged popup was visually inspected in Chromium at its production
   width with active-session status and restore controls.
 

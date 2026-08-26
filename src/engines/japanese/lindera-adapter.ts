@@ -8,16 +8,65 @@ import {
   IPADIC_DICTIONARY_VERSION,
   mapIpadicTokens,
 } from "./ipadic-schema";
-import type { LinderaTokenData } from "./ipadic-schema";
+import type { JapaneseToken, LinderaTokenData } from "./ipadic-schema";
 import {
   formatJapaneseTokens,
   JAPANESE_SPACING_POLICY_VERSION,
 } from "./spacing";
 
 const TOKENIZABLE_JAPANESE_RUN =
-  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\u30fc\uff65-\uff9f]+/gu;
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Number}\u3000-\u303f\u30fc\uff65-\uff9f]+/gu;
 const JAPANESE_CORE =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\uff66-\uff9f]/u;
+const HAN_ONLY = /^[\p{Script=Han}]+$/u;
+
+function protectUnknownHanCompounds(
+  tokens: readonly JapaneseToken[],
+): readonly JapaneseToken[] {
+  const protectedIndexes = new Set<number>();
+  let index = 0;
+  while (index < tokens.length) {
+    const first = tokens[index];
+    if (first === undefined || !HAN_ONLY.test(first.source)) {
+      index += 1;
+      continue;
+    }
+    let end = index + 1;
+    while (end < tokens.length) {
+      const previous = tokens[end - 1];
+      const current = tokens[end];
+      if (
+        current === undefined ||
+        previous?.end !== current.start ||
+        !HAN_ONLY.test(current.source)
+      ) {
+        break;
+      }
+      end += 1;
+    }
+    const compound = tokens.slice(index, end);
+    if (
+      compound.some(
+        (token) => token.isUnknown || token.reading === null,
+      )
+    ) {
+      for (let compoundIndex = index; compoundIndex < end; compoundIndex += 1) {
+        protectedIndexes.add(compoundIndex);
+      }
+    }
+    index = end;
+  }
+  return tokens.map((token, tokenIndex) =>
+    protectedIndexes.has(tokenIndex)
+      ? {
+          ...token,
+          reading: null,
+          romanized: null,
+          isUnknownCompound: true,
+        }
+      : token,
+  );
+}
 
 interface JapaneseRun {
   readonly start: number;
@@ -97,10 +146,10 @@ export class JapaneseLinderaAdapter implements TransliterationEngine {
           romanized: null,
         });
       }
-      const tokens = mapIpadicTokens(
+      const tokens = protectUnknownHanCompounds(mapIpadicTokens(
         run.source,
         this.tokenizer.tokenize(run.source),
-      );
+      ));
       renderedParts.push(formatJapaneseTokens(run.source, tokens));
       for (const token of tokens) {
         if (

@@ -13,6 +13,7 @@ export interface NodeState {
   rendererId: "replace-v1";
   optionsKey: "ja:ascii-hepburn-v1";
   status: NodeProcessingStatus;
+  boundaryPrefix: string;
 }
 
 export class NodeStateRegistry {
@@ -28,6 +29,7 @@ export class NodeStateRegistry {
       rendererId: "replace-v1",
       optionsKey: "ja:ascii-hepburn-v1",
       status: "queued",
+      boundaryPrefix: "",
     };
     this.#states.set(node, state);
     return state;
@@ -39,6 +41,23 @@ export class NodeStateRegistry {
 
   markActive(node: Text): void {
     this.#activeNodes.add(node);
+  }
+
+  addBoundaryPrefix(node: Text, prefix: string): boolean {
+    const state = this.#states.get(node);
+    if (
+      state === undefined ||
+      !this.#activeNodes.has(node) ||
+      state.rendered === null ||
+      state.boundaryPrefix.length > 0 ||
+      node.data !== state.rendered
+    ) {
+      return false;
+    }
+    state.boundaryPrefix = prefix;
+    state.rendered = prefix + state.rendered;
+    node.data = state.rendered;
+    return true;
   }
 
   restoreOwned(): number {

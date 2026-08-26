@@ -10,6 +10,10 @@ const fixturePath = resolve(
   projectRoot,
   "tests/fixtures/pages/static-article.html",
 );
+const hardeningFixturePath = resolve(
+  projectRoot,
+  "tests/fixtures/pages/hardening-article.html",
+);
 
 async function readBrowserPssMiB(session: CDPSession): Promise<number> {
   const { processInfo } = await session.send("SystemInfo.getProcessInfo");
@@ -228,6 +232,197 @@ test("action injection romanizes a static page locally and restores it", async (
   }
 });
 
+test("realistic Phase 1 fixture preserves counters, loanwords, boundaries, and compounds", async () => {
+  const fixture = await readFile(hardeningFixturePath);
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(fixture);
+  });
+  await new Promise<void>((resolveListen, rejectListen) => {
+    server.once("error", rejectListen);
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("Hardening fixture server did not bind a TCP port");
+  }
+
+  const context = await chromium.launchPersistentContext("", {
+    channel: "chromium",
+    headless: true,
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+    ],
+  });
+
+  try {
+    let serviceWorker = context.serviceWorkers()[0];
+    serviceWorker ??= await context.waitForEvent("serviceworker");
+    const extensionId = new URL(serviceWorker.url()).host;
+    const page = await context.newPage();
+    const fixtureUrl = `http://127.0.0.1:${String(address.port)}/hardening`;
+    await page.goto(fixtureUrl);
+    await page.bringToFront();
+
+    const browser = context.browser();
+    if (browser === null) {
+      throw new Error("Persistent Chromium browser is unavailable");
+    }
+    const browserSession = await browser.newBrowserCDPSession();
+    const { targetInfos } = await browserSession.send("Target.getTargets", {
+      filter: [{ type: "tab", exclude: false }, { exclude: true }],
+    });
+    const pageTarget = targetInfos.find(
+      (target) => target.type === "tab" && target.url === fixtureUrl,
+    );
+    if (pageTarget === undefined) {
+      throw new Error("Could not resolve the hardening fixture tab target");
+    }
+
+    const uploadedRequests: string[] = [];
+    context.on("request", (request) => {
+      if (/^https?:/u.test(request.url())) {
+        uploadedRequests.push(request.url());
+      }
+    });
+    await context.setOffline(true);
+    await browserSession.send("Extensions.triggerAction", {
+      id: extensionId,
+      targetId: pageTarget.targetId,
+    });
+
+    const extensionControl = await context.newPage();
+    await extensionControl.goto(
+      `chrome-extension://${extensionId}/src/ui/popup/popup.html`,
+    );
+    await page.bringToFront();
+    const startSummary: unknown = await extensionControl.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab?.id === undefined) {
+        throw new Error("No active hardening fixture tab");
+      }
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, frameIds: [0] },
+        files: ["assets/content-script.js"],
+      });
+      const response: unknown = await chrome.tabs.sendMessage(
+        tab.id,
+        {
+          protocolVersion: 1,
+          target: "content",
+          type: "content.command",
+          requestId: crypto.randomUUID(),
+          command: "start",
+        },
+        { frameId: 0 },
+      );
+      return response;
+    });
+    expect(startSummary).toMatchObject({
+      state: "active",
+      eligibleNodes: 11,
+      processedNodes: 11,
+      failedNodes: 0,
+    });
+    await expect(page.locator("#inline-boundaries")).toHaveText(
+      "wikipedia wa dare demo henshuu dekiru furii hyakka jiten desu",
+    );
+    await expect(page.locator("#counters")).toHaveText(
+      "1928 nen 2024 nen 2 gatsu 29 nichi 490 nin 12 mei 24 jikan dai 1 kai",
+    );
+    await expect(page.locator("#loanwords")).toHaveText(
+      "faasuto raito fikushon infomeeshon wikipedia",
+    );
+    await expect(page.locator("#unknown-compounds")).toHaveText(
+      "巨椋池 諏訪頼嗣 toukyou",
+    );
+    await expect(page.locator("#punctuation")).toHaveText(
+      "toukyou。desu English 123 🎵",
+      { useInnerText: false },
+    );
+    await expect(page.locator("#excluded")).toHaveText("ファースト 東京");
+    await expect(page.locator("#page-owned")).toHaveAttribute(
+      "data-page-owned",
+      "preserved",
+    );
+
+    const identity = await page.evaluate(() => {
+      const node = document.querySelector("#page-owned")?.firstChild;
+      return {
+        sameNode: node === window.hardeningOriginalNode,
+        clicks: window.hardeningClicks,
+      };
+    });
+    expect(identity).toEqual({ sameNode: true, clicks: 0 });
+
+    await page.bringToFront();
+    const stopSummary: unknown = await extensionControl.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab?.id === undefined) {
+        throw new Error("No active hardening fixture tab");
+      }
+      const response: unknown = await chrome.tabs.sendMessage(
+        tab.id,
+        {
+          protocolVersion: 1,
+          target: "content",
+          type: "content.command",
+          requestId: crypto.randomUUID(),
+          command: "stop",
+        },
+        { frameId: 0 },
+      );
+      if (await chrome.offscreen.hasDocument()) {
+        await chrome.offscreen.closeDocument();
+      }
+      return response;
+    });
+    expect(stopSummary).toMatchObject({ state: "original" });
+    await expect(page.locator("#inline-boundaries")).toHaveText(
+      "ウィキペディアは誰でも編集できるフリー百科事典です",
+    );
+    await expect(page.locator("#counters")).toHaveText(
+      "1928年 2024年 2月29日 490人 12名 24時間 第1回",
+    );
+    await expect(page.locator("#loanwords")).toHaveText(
+      "ファーストライト フィクション インフォメーション ウィキペディア",
+    );
+    await expect(page.locator("#unknown-compounds")).toHaveText(
+      "巨椋池 諏訪頼嗣 東京",
+    );
+    const restored = await page.evaluate(() => {
+      const node = document.querySelector("#page-owned")?.firstChild;
+      document.querySelector("#page-owned")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      return {
+        sameNode: node === window.hardeningOriginalNode,
+        clicks: window.hardeningClicks,
+      };
+    });
+    expect(restored).toEqual({ sameNode: true, clicks: 1 });
+    expect(uploadedRequests).toEqual([]);
+  } finally {
+    await context.close();
+    await new Promise<void>((resolveClose, rejectClose) => {
+      server.close((error) => {
+        if (error === undefined) {
+          resolveClose();
+        } else {
+          rejectClose(error);
+        }
+      });
+    });
+  }
+});
+
 test("5,000-node scan stays sliced and within the page-side memory budget", async () => {
   const largeFixture = `<!doctype html><html lang="ja"><body><main>${Array.from(
     { length: 5_000 },
@@ -412,9 +607,11 @@ test("5,000-node scan stays sliced and within the page-side memory budget", asyn
 });
 
 declare global {
-  interface Window {
-    fixtureOriginalNode: ChildNode;
-    fixtureClicks: number;
-    fixtureLongTasks: number[];
-  }
+interface Window {
+  fixtureOriginalNode: ChildNode;
+  fixtureClicks: number;
+  fixtureLongTasks: number[];
+  hardeningOriginalNode: ChildNode;
+  hardeningClicks: number;
+}
 }

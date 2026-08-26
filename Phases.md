@@ -1,7 +1,7 @@
 # Breaking the Barrier — Implementation Phases
 
 - **Planning bootstrap:** Complete
-- **Current implementation phase:** Phase 1 — complete
+- **Current implementation phase:** Phase 1 — complete + real-world hardened
 - **Next phase:** Phase 2 — ready to start, not started
 - **Last updated:** 2026-08-26
 
@@ -154,7 +154,7 @@ The initial authoritative corpus includes at least:
 
 Do not begin Phase 1 until the Japanese engine path has a measured go decision. If Lindera fails, evaluate the smallest credible local alternative through the existing engine contract. Do not solve a failed local spike by silently introducing a server.
 
-## Phase 1 — Static Japanese DOM transliteration (complete)
+## Phase 1 — Static Japanese DOM transliteration (complete + hardened)
 
 **Completed:** 2026-08-26
 
@@ -164,8 +164,10 @@ romanizes Japanese locally, preserves mixed and excluded content, and restores
 still-owned `Text.data` exactly. Stale and in-flight results are rejected,
 individual failures remain original, and processor sessions are released only
 when no tracked active tab remains. The 5,000-node Chromium fixture measured
-2.7 MiB retained renderer growth, 18.1 MiB total PSS movement, and zero observed
-long tasks over 50 ms. Phase 2 dynamic observation has not begun.
+3.4 MiB retained renderer growth, 20.6 MiB aggregate PSS movement, and zero
+observed long tasks over 50 ms. The hardening fixture also covers numeric
+context, extended Katakana, unknown compounds, and inline boundaries. Phase 2
+dynamic observation has not begun.
 
 ### Objective
 

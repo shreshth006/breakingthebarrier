@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { JapaneseLinderaAdapter } from "../../src/engines/japanese/lindera-adapter";
+import {
+  findTokenizableJapaneseRuns,
+  JapaneseLinderaAdapter,
+} from "../../src/engines/japanese/lindera-adapter";
 import type { LinderaTokenData } from "../../src/engines/japanese/ipadic-schema";
 
 const details = {
@@ -89,6 +92,49 @@ describe("Japanese Lindera adapter", () => {
     expect(result?.segments[0]?.reading).toBeNull();
   });
 
+  it("does not partially romanize a contiguous known/unknown Han compound", async () => {
+    const knownTokyo = [
+      "名詞",
+      "固有名詞",
+      "地域",
+      "一般",
+      "*",
+      "*",
+      "東京",
+      "トウキョウ",
+      "トーキョー",
+    ];
+    const unknown = ["名詞", "一般", "*", "*", "*", "*", "*", "*", "*"];
+    const adapter = new JapaneseLinderaAdapter(
+      {
+        tokenize: (source) =>
+          source === "東京龘"
+            ? [
+                token("東京", 0, 6, knownTokyo),
+                token("龘", 6, 9, unknown, true),
+              ]
+            : [
+                token("龘", 0, 3, unknown, true),
+                token("東京", 3, 9, knownTokyo),
+              ],
+      },
+      "5.3.0",
+    );
+
+    const results = await adapter.transliterate(
+      ["東京龘", "龘東京"].map((source) => ({
+        itemId: source,
+        source,
+        language: "ja" as const,
+        romanizationPolicy: "ascii-hepburn-v1",
+      })),
+    );
+    expect(results.map((entry) => entry.rendered)).toEqual(["東京龘", "龘東京"]);
+    expect(
+      results.every((entry) => entry.warnings.includes("unknown-reading")),
+    ).toBe(true);
+  });
+
   it("tokenizes only Japanese runs and preserves arbitrary surrounding text", async () => {
     const tokenized: string[] = [];
     const adapter = new JapaneseLinderaAdapter(
@@ -126,5 +172,12 @@ describe("Japanese Lindera adapter", () => {
     expect(result?.rendered).toBe("  English toukyou 123 🎵  ");
     expect(result?.segments.map((segment) => segment.source).join(""))
       .toBe("  English 東京 123 🎵  ");
+  });
+
+  it("includes adjacent numeric context without reopening arbitrary mixed input", () => {
+    expect(findTokenizableJapaneseRuns("1928年 2月29日 English 123 🎵")).toEqual([
+      { start: 0, end: 5, source: "1928年" },
+      { start: 6, end: 11, source: "2月29日" },
+    ]);
   });
 });

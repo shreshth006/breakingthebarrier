@@ -3,7 +3,7 @@
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-08-26
 - **Target:** Chromium desktop, Manifest V3
-- **Implementation status:** Phases 0 and 1 complete; Phase 2 not started
+- **Implementation status:** Phases 0 and 1 complete; Phase 1 hardened; Phase 2 not started
 
 ## 1. Repository audit
 
@@ -472,6 +472,14 @@ source in that order. A Han-bearing token without a valid reading is marked
 unknown and kept original. Schema positions are named constants with fixture
 tests; they may not leak into renderers or generic engine code.
 
+Real-world hardening adds a narrow numeric-context exception: directly adjacent
+Unicode numbers may travel with an otherwise isolated Japanese run so IPADIC
+can resolve counters, while arbitrary Latin, URLs, emoji, and unrelated digits
+remain outside the analyzer. Arabic number surfaces are rendered unchanged.
+For extended Katakana loanwords, the product policy layer owns familiar compact
+ASCII spellings where WanaKana's historical table is not suitable; it does not
+rewrite ordinary adjacent Kana sequences.
+
 Byte offsets from WASM must be converted to JavaScript string offsets through a tested mapper because JavaScript uses UTF-16 code units and Japanese strings may contain supplementary characters or emoji.
 
 ### 10.4 ASCII Hepburn policy
@@ -496,6 +504,10 @@ Blindly inserting spaces between all morphological tokens would produce unnatura
 - punctuation follows source spacing rules;
 - existing Latin/number spacing is preserved;
 - proper-noun and compound behavior is corpus-tested;
+- numeric counter boundaries preserve Arabic digits and add readable spaces only
+  when a number is adjacent to a counter;
+- unresolved contiguous Han compounds remain wholly original rather than being
+  partially romanized;
 - the output example `星座になれたら` targets `seiza ni naretara`.
 
 Spacing rules are versioned independently from the dictionary so caches invalidate when presentation changes.
@@ -685,10 +697,13 @@ static fixture verified mixed-text preservation, excluded regions, node
 identity, event listeners, offline processing, exact restoration, and clean
 processor release.
 
-The 5,000-node Chromium fixture measured 2.7 MiB retained renderer growth after
-diagnostic garbage collection, 18.1 MiB total Chromium PSS movement, and no
-observed long task over 50 ms. Mutation observation, dynamic reclassification,
-and incremental drains remain Phase 2 work.
+The hardened 5,000-node Chromium fixture measured 3.4 MiB retained renderer
+growth after diagnostic garbage collection, 20.6 MiB aggregate Chromium PSS
+movement, and no observed long task over 50 ms. A separate realistic fixture
+verified numeric counters, extended Katakana, unknown compounds, punctuation,
+safe inline-boundary spaces, exact restoration, node identity, and handlers.
+Mutation observation, dynamic reclassification, and incremental drains remain
+Phase 2 work.
 
 ## 12. Dynamic mutation pipeline
 
@@ -1468,6 +1483,33 @@ only in the content controller, or accept worker timeouts for mixed text.
 **Trade-offs:** Linguistic context does not cross a non-Japanese run boundary;
 that boundary is preferable to altering unsupported content or hanging the
 processor.
+
+### D-14 — Phase 1 real-world language and inline-boundary hardening
+
+**Decision:** Keep the D-13 run-isolation boundary, with one narrow exception
+for directly adjacent numeric context. Arabic digits remain source surfaces;
+counter spacing is applied from token context, not a global Kanji replacement
+table. The ASCII Hepburn adapter owns a small source-based extended-Katakana
+policy. A contiguous Han compound containing an unresolved token remains wholly
+original. Replace mode may add a single temporary prefix space only between
+adjacent BTB-owned text nodes whose rendered edges are ASCII words and whose
+DOM path remains inline; restoration removes it with the owned value.
+
+**Reason:** The first real Japanese Wikipedia smoke test exposed counter
+misreadings caused by isolating digits, WanaKana's unsuitable historical
+extended-Katakana spellings, misleading known/unknown compound fragments, and
+Latin word collisions across inline element boundaries. Each fix is bounded by
+source offsets and ownership state and remains local/offline.
+
+**Alternatives considered:** Broad mixed-input re-enablement, output-wide string
+replacement, per-site/proper-name hardcoding, wrapper elements, parent
+replacement, or deferring all boundary readability to a later renderer.
+
+**Trade-offs:** The numeric exception and compact loanword policy remain
+language-specific and corpus-versioned. IPADIC proper-name accuracy is still
+not guaranteed; quality observations remain separate. Boundary spacing is
+conservative and intentionally skips block, punctuation, whitespace, and
+unknown-output boundaries.
 
 ## 28. Scenario validation
 
