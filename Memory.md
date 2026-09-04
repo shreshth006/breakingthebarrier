@@ -1,11 +1,13 @@
 # Current State
 
-Current phase: Phase 2 — dynamic DOM observation complete
+Current phase: Phase 3 — controls and preferences in progress
 
 Current milestone: A user-invoked main-frame session can romanize eligible
 Japanese text on a static page locally, preserve mixed and excluded content,
 and restore still-owned text exactly while incrementally tracking dynamic DOM
-changes. Phase 3 has not started.
+changes. Phase 3 now has a versioned local preference boundary and explicit
+popup state presentation; remembered-site permissions and page prompting are
+the next incomplete slice.
 
 Last verified working state: The packaged MV3 extension runs offline in
 Chromium 151, receives an action-granted `activeTab`, injects one isolated-world
@@ -54,6 +56,15 @@ source strings, and releases the processor after the final tracked session.
 - Added node-specific expected-render filtering, revision updates for page
   overwrites, replacement/subtree discovery, detached-node cleanup, and latest
   page-authored source restoration.
+- Started Phase 3 with a versioned `chrome.storage.local` schema containing
+  only global/language enablement, fixed Replace/ASCII Hepburn policy,
+  normalized per-origin policy, and permission-explanation state.
+- Added pure, idempotent legacy migration, canonical HTTP(S)-origin handling,
+  future-schema protection, serialized preference patches, and validated local
+  storage-change publication.
+- Refactored popup presentation through a tested state model with visible
+  Original, Starting, On, Partial, and Unavailable badges and accurate busy,
+  retry, restoration, and restricted-page controls.
 
 # Architecture Decisions
 
@@ -88,6 +99,9 @@ source strings, and releases the processor after the final tracked session.
 - Dynamic drains reuse the Phase 1 scanner, engine client/cache/coalescing, and
   bounded write slices. Mutation records are discarded after classification;
   only current node/root identity sets remain queued.
+- Persistent preferences use one schema-versioned local object. Site keys are
+  origins only; paths, titles, text, caches, and session state are never stored.
+  A newer unknown schema fails closed instead of being replaced by defaults.
 
 # Final Measurements
 
@@ -103,13 +117,14 @@ diagnostic garbage collection at both renderer baselines:
 - observed page long tasks over 50 ms: zero;
 - exact first-node restoration after stop: passed.
 
-Latest combined Phase 1/2 integration rerun measured 4.1 MiB retained renderer
-growth, 22.2 MiB aggregate Chromium PSS movement, and zero long tasks; the
+Latest Phase 1/2 large-page regression rerun measured 4.0 MiB retained renderer
+growth, 22.1 MiB aggregate Chromium PSS movement, and zero long tasks; the
 20 MiB page-side retained budget remains the applicable limit.
 
 Phase 2 dynamic fixture:
 
-- 1,000 added Japanese text nodes converged in 207 ms in the latest run;
+- 1,000 added Japanese text nodes converged in 293 ms in the latest full-suite
+  run (207 ms at the Phase 2 completion gate);
 - zero observed page long tasks over 50 ms;
 - same-node, added-text, added-subtree, replacement, exclusion, rapid-source,
   self-write, stop-during-request, and detached-node cleanup gates passed.
@@ -139,6 +154,10 @@ Phase 0 retained processor reference remains:
   mixed-span stitching.
 - `src/background/service-worker.ts`: injection, page commands, session
   bookkeeping, and processor lifecycle.
+- `src/storage/`: versioned preference schema, pure migrations, canonical
+  origin handling, serialized local persistence, and change publication.
+- `src/ui/popup/popup-view.ts`: pure current-page state presentation used by
+  the accessible popup controls.
 - `tests/integration/static-dom.spec.ts`: packaged static/dynamic articles,
   offline restoration, mutation stress, and 5,000-node performance gates.
 - `tests/fixtures/pages/hardening-article.html`,
@@ -153,8 +172,8 @@ Phase 0 retained processor reference remains:
 - Main-frame document text only is supported. Iframes and open Shadow DOM remain
   later work; closed roots and unauthorized cross-origin frames remain out of
   scope.
-- Initial visibility checks do not observe later class/style changes. Phase 2
-  will evaluate only a narrow attribute strategy from measurements.
+- Initial visibility checks do not observe later class/style changes; broad
+  attribute observation remains deliberately deferred.
 - IPADIC can misread names, slang, and creative orthography. Unknown Han remains
   original rather than receiving a fabricated reading.
 - Headless Chromium's action trigger grants `activeTab` but does not expose the
@@ -164,16 +183,19 @@ Phase 0 retained processor reference remains:
 
 # Current TODO
 
-- Keep Phase 2 live behavior bounded while gathering broader real-site evidence.
-- Do not add Phase 3 remembered-site permissions or new popup UX in this phase.
+- Implement current-origin permission request/denial/revocation behavior on top
+  of the new preference store.
+- Reconcile remembered-site policies with persistent programmatic content-script
+  registrations across worker restarts before adding the in-page prompt.
 
 # Tests
 
 Final release gates:
 
-- `npm run test` — 14 Vitest files with 93 passing tests, including dynamic
-  same-node, subtree, replacement, self-write, stop, and cleanup regressions.
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 93 unit
+- `npm run test` — 16 Vitest files with 102 passing tests, including preference
+  defaults/migrations/storage changes, popup state, and all Phase 1/2 dynamic
+  regressions.
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 102 unit
   tests, both production bundles, and the distribution
   inventory all passed.
 - `npm run test:integration` — all six packaged Chromium tests passed: the
@@ -199,6 +221,7 @@ Test: `npm run verify && npm run test:integration`
 
 # Notes for Next Agent
 
-Phase 2 is complete. Do not add periodic rescans, attribute observation, site
-selectors, or Phase 3 persistence. The next phase is Phase 3 — Controls,
-remembered sites, and MVP completion.
+Phase 2 is complete. Phase 3 has begun with preferences and popup state. Do not
+add periodic rescans, broad attribute observation, or site selectors. Continue
+with remembered-site permission and registration reconciliation, then the
+authorized-site detection prompt.

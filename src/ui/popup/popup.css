@@ -27,9 +27,15 @@ body {
 
 main {
   display: grid;
-  grid-template-columns: 32px 1fr;
   gap: 12px;
   padding: 16px;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .product-mark {
@@ -71,10 +77,27 @@ h1 {
   line-height: 1.35;
 }
 
-.description,
-button,
-.status {
-  grid-column: 1 / -1;
+.heading {
+  min-width: 0;
+}
+
+.page-state {
+  border: 1px solid var(--btb-border);
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: var(--btb-text-muted);
+  background: var(--btb-surface-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.page-state[data-state="success"] {
+  color: var(--btb-success);
+}
+
+.page-state[data-state="error"] {
+  color: var(--btb-danger);
 }
 
 .description {
@@ -106,8 +129,12 @@ button:focus-visible {
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.7;
+}
+
+button[aria-busy="true"]:disabled {
+  cursor: wait;
 }
 
 .status {
@@ -156,5 +183,16 @@ button:disabled {
 
   button {
     border: 1px solid ButtonText;
+  }
+
+  .page-state {
+    border-color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

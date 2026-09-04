@@ -1,8 +1,8 @@
 # Breaking the Barrier — Product Requirements Document
 
 - **Document status:** Planning baseline 1.1
-- **Last updated:** 2026-08-26
-- **Implementation status:** Phases 0, 1, and 2 complete; Phase 2 dynamically hardened; Phase 3 ready to start
+- **Last updated:** 2026-09-05
+- **Implementation status:** Phases 0, 1, and 2 complete; Phase 3 controls and preference foundation in progress
 
 ## 1. Product overview
 

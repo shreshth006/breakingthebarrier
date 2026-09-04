@@ -1,7 +1,7 @@
 # Breaking the Barrier — Engineering Rules
 
 - **Document status:** Planning baseline 1.1
-- **Last updated:** 2026-08-26
+- **Last updated:** 2026-09-05
 - **Applies to:** Human contributors and AI coding agents
 
 These rules protect the product thesis, page safety, privacy, and the implementation boundaries in `Architecture.md`. “Must” and “must not” are release requirements. Exceptions require an explicit written decision with evidence and corresponding documentation changes.
@@ -167,6 +167,11 @@ These rules are non-negotiable.
 - Do not add telemetry or analytics in the MVP.
 - Do not persist page text, OCR output, screenshot data, or transliteration cache entries.
 - Use `chrome.storage.local` only for versioned settings and origin policy metadata; use `storage.session` for ephemeral recovery state.
+- Normalize remembered-site keys to concrete HTTP(S) origins before persistence;
+  never retain paths, queries, fragments, credentials, or restricted schemes.
+- Preference migrations must be pure and idempotent. Never overwrite a stored
+  schema newer than the running extension understands, and serialize competing
+  preference writes so one patch cannot silently discard another.
 - Do not use page `localStorage` from content scripts.
 - Do not use `storage.sync` without an explicit opt-in product decision.
 - Release logs may include error codes, counts, coarse timings, versions, and permission state. They may not include raw content.

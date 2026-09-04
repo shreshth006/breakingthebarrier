@@ -4,19 +4,23 @@ import {
   validateHealthErrorResponse,
   validatePageCommandResponse,
 } from "../../shared/validation";
+import { popupViewForSummary } from "./popup-view";
 
 const buttonElement = document.querySelector("#page-action");
 const statusElement = document.querySelector("#status");
+const badgeElement = document.querySelector("#page-state");
 
 if (
   !(buttonElement instanceof HTMLButtonElement) ||
-  !(statusElement instanceof HTMLElement)
+  !(statusElement instanceof HTMLElement) ||
+  !(badgeElement instanceof HTMLElement)
 ) {
   throw new Error("Required popup controls are missing");
 }
 
 const actionButton = buttonElement;
 const status = statusElement;
+const badge = badgeElement;
 let currentState: FrameSessionSummary["state"] = "original";
 
 function setStatus(
@@ -27,39 +31,20 @@ function setStatus(
   status.dataset.state = state;
   delete status.dataset.errorCode;
   delete status.dataset.errorCause;
+  actionButton.setAttribute(
+    "aria-busy",
+    state === "loading" ? "true" : "false",
+  );
 }
 
 function renderSummary(summary: FrameSessionSummary): void {
   currentState = summary.state;
-  if (summary.reason === "restricted-page") {
-    actionButton.textContent = "Romanize this page";
-    actionButton.disabled = true;
-    setStatus("This browser page cannot be changed.", "error");
-    return;
-  }
-  actionButton.disabled = false;
-  if (summary.state === "active") {
-    actionButton.textContent = "Show original";
-    setStatus(
-      summary.failedNodes > 0
-        ? "Showing romaji. Some text was left original."
-        : `Showing romaji · ${String(summary.processedNodes)} text nodes`,
-      "success",
-    );
-    return;
-  }
-  if (summary.state === "degraded") {
-    actionButton.textContent = "Retry";
-    setStatus("Readings are unavailable. The page was left original.", "error");
-    return;
-  }
-  actionButton.textContent = "Romanize this page";
-  setStatus(
-    summary.reason === "no-supported-text"
-      ? "No supported Japanese text found."
-      : "Current page is original",
-    "idle",
-  );
+  const view = popupViewForSummary(summary);
+  badge.textContent = view.badge;
+  badge.dataset.state = view.statusState;
+  actionButton.textContent = view.actionLabel;
+  actionButton.disabled = view.actionDisabled;
+  setStatus(view.status, view.statusState);
 }
 
 async function sendCommand(command: PageCommand): Promise<void> {
@@ -89,6 +74,8 @@ actionButton.addEventListener("click", () => {
       : "Restoring original text…",
     "loading",
   );
+  badge.textContent = command === "start" ? "Starting" : "Original";
+  badge.dataset.state = "loading";
   void sendCommand(command).catch(() => {
     actionButton.disabled = false;
     setStatus("Readings are unavailable. Try again.", "error");

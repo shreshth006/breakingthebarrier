@@ -1,9 +1,9 @@
 # Breaking the Barrier — Architecture
 
 - **Document status:** Planning baseline 1.1
-- **Last updated:** 2026-08-26
+- **Last updated:** 2026-09-05
 - **Target:** Chromium desktop, Manifest V3
-- **Implementation status:** Phases 0, 1, and 2 complete; Phase 2 dynamically hardened; Phase 3 not started
+- **Implementation status:** Phases 0, 1, and 2 complete; Phase 3 preference and popup-control foundation in progress
 
 ## 1. Repository audit
 
@@ -1548,6 +1548,32 @@ attribute observation, and site-specific selectors.
 visibility changes, frames, and shadow roots remain deferred. A dynamic session
 keeps its observer and warm engine path alive until explicit stop or page
 destruction; no new permission or persistence surface is introduced.
+
+### D-16 — Versioned local preference boundary
+
+**Decision:** Persist one canonical `preferences` object in
+`chrome.storage.local`. Schema version 1 stores only global enablement, the
+Japanese enablement and fixed `ascii-hepburn-v1` policy, the fixed Replace
+renderer, normalized HTTP(S)-origin policies, and permission-explanation state.
+Migrations are pure and idempotent; invalid fields fall back independently,
+origin paths and queries are discarded, concurrent patches are serialized, and
+a schema newer than the running extension is never overwritten. Storage-change
+subscribers receive a newly validated canonical value.
+
+**Reason:** Remembered-site access needs a stable local policy boundary before
+permission and registration lifecycles are added. Canonical origin-only keys
+prevent accidental persistence of visited paths, while fixed policy literals
+keep Phase 3 from silently exposing unimplemented renderer or transliteration
+choices.
+
+**Alternatives considered:** Unversioned independent storage keys, page
+`localStorage`, `storage.sync`, storing full tab URLs, and permissively
+downgrading unknown future schemas.
+
+**Trade-offs:** Version 1 intentionally has no cross-device sync and does not
+store current page content or session state. Permission grants and registered
+content scripts remain separate browser state that the next Phase 3 slice must
+reconcile against these policies.
 
 ## 28. Scenario validation
 

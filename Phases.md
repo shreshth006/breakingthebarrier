@@ -1,9 +1,9 @@
 # Breaking the Barrier — Implementation Phases
 
 - **Planning bootstrap:** Complete
-- **Current implementation phase:** Phase 2 — complete + dynamically hardened
-- **Next phase:** Phase 3 — ready to start, not started
-- **Last updated:** 2026-08-26
+- **Current implementation phase:** Phase 3 — in progress
+- **Next phase:** Phase 3 remembered-site access and detection prompt
+- **Last updated:** 2026-09-05
 
 ## 1. Roadmap principles
 
@@ -327,6 +327,16 @@ Prove the core product thesis on modern applications: Japanese text that changes
 Do not proceed to user-facing persistence until the critical Spotify-like fixture, React reconciliation, loop prevention, restoration, and performance gates pass together.
 
 ## Phase 3 — MVP controls, prompt, restoration UX, and preferences
+
+**Started:** 2026-09-05
+
+**Verified progress:** The versioned `storage.local` preference foundation is
+implemented with privacy-safe defaults, a pure legacy migration, canonical
+HTTP(S)-origin keys, serialized patches, storage-change publication, and
+future-schema protection. The popup now derives explicit Original, Starting,
+On, Partial, and Unavailable views from the typed current-frame summary. Site
+permission requests, persistent registration reconciliation, and the in-page
+detection prompt remain incomplete, so Phase 3 is not yet a release candidate.
 
 ### Objective
 

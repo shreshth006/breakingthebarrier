@@ -50,6 +50,18 @@ import {
   CONTENT_SCRIPT_PATH,
 } from "../shared/config";
 import { resultsMatchRequests } from "../shared/transliteration-validation";
+import { PreferenceStore } from "../storage/preferences";
+
+const preferenceStore = new PreferenceStore(
+  chrome.storage.local,
+  chrome.storage.onChanged,
+);
+
+void preferenceStore.get().catch(() => undefined);
+
+chrome.runtime.onInstalled.addListener(() => {
+  void preferenceStore.get().catch(() => undefined);
+});
 
 function isInternalSender(sender: chrome.runtime.MessageSender): boolean {
   return sender.id === chrome.runtime.id;

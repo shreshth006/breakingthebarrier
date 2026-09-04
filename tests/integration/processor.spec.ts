@@ -207,6 +207,28 @@ test("packaged popup starts the local Lindera worker", async () => {
       popup.getByRole("button", { name: "Romanize this page" }),
     ).toBeVisible();
     await expect(popup.getByText("Romanize readable Japanese")).toBeVisible();
+    await expect(popup.locator("#page-state")).toHaveText("Original");
+    await expect(popup.locator("#page-action")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    const storedPreferences = await popup.evaluate(async () => {
+      const stored = await chrome.storage.local.get("preferences");
+      return stored.preferences;
+    });
+    expect(storedPreferences).toEqual({
+      schemaVersion: 1,
+      globalEnabled: true,
+      languages: {
+        ja: {
+          enabled: true,
+          romanizationPolicy: "ascii-hepburn-v1",
+        },
+      },
+      renderer: "replace",
+      sites: {},
+      onboarding: { sitePermissionExplained: false },
+    });
   } finally {
     await context.close();
   }

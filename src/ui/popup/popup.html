@@ -8,18 +8,25 @@
   </head>
   <body>
     <main>
-      <div class="product-mark" aria-hidden="true">
-        <span></span><i></i><span></span>
-      </div>
-      <div>
-        <p class="eyebrow">Breaking the Barrier</p>
-        <h1>Japanese romanization</h1>
+      <div class="header">
+        <div class="product-mark" aria-hidden="true">
+          <span></span><i></i><span></span>
+        </div>
+        <div class="heading">
+          <p class="eyebrow">Breaking the Barrier</p>
+          <h1>Japanese romanization</h1>
+        </div>
+        <span id="page-state" class="page-state" data-state="idle">
+          Original
+        </span>
       </div>
       <p class="description">
         Romanize readable Japanese on this page locally. Show Original to
         restore text without reloading.
       </p>
-      <button id="page-action" type="button">Romanize this page</button>
+      <button id="page-action" type="button" aria-busy="false">
+        Romanize this page
+      </button>
       <p
         id="status"
         class="status"
