@@ -65,6 +65,11 @@ If these documents disagree:
 - Required permissions must remain limited to capabilities used by the active implementation.
 - Do not add persistent `<all_urls>` host permission.
 - Declare broad HTTP(S) patterns only under `optional_host_permissions`, then request the concrete current origin in a user gesture.
+- Save remembered-site policy only after the matching optional origin grant is
+  confirmed. A missing or revoked grant must remove its managed registration
+  and stale enabled policy.
+- Programmatic content-script registration IDs must be deterministic and opaque;
+  reconciliation must be idempotent and must not modify unrelated registrations.
 - Do not add `tabs` simply to call methods that do not require the `tabs` permission.
 - Never add the `nativeMessaging` permission.
 - Do not add cookies, history, webRequest, debugger, clipboard, camera, microphone, or other permissions without a reviewed product requirement and decision record.

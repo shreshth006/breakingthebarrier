@@ -154,6 +154,74 @@ button[aria-busy="true"]:disabled {
   color: var(--btb-danger);
 }
 
+.site-memory {
+  border-top: 1px solid var(--btb-border);
+  padding-top: 12px;
+}
+
+.site-memory-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.site-memory-control label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.site-host,
+.site-explanation,
+.site-status {
+  margin: 0;
+  color: var(--btb-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.site-host {
+  overflow-wrap: anywhere;
+}
+
+.site-explanation {
+  margin-top: 6px;
+}
+
+.site-status {
+  min-height: 17px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.site-status[data-state="success"] {
+  color: var(--btb-success);
+}
+
+.site-status[data-state="error"] {
+  color: var(--btb-danger);
+}
+
+#remember-site {
+  width: 44px;
+  height: 24px;
+  margin: 0;
+  accent-color: var(--btb-primary);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+#remember-site:focus-visible {
+  outline: 3px solid var(--btb-focus);
+  outline-offset: 2px;
+}
+
+#remember-site:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --btb-surface: #111827;

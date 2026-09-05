@@ -36,6 +36,32 @@
       >
         Current page is original
       </p>
+      <section id="site-memory" class="site-memory" hidden>
+        <div class="site-memory-control">
+          <div>
+            <label for="remember-site">Remember for this site</label>
+            <p id="site-host" class="site-host"></p>
+          </div>
+          <input
+            id="remember-site"
+            type="checkbox"
+            role="switch"
+            aria-describedby="site-explanation site-status"
+            disabled
+          />
+        </div>
+        <p id="site-explanation" class="site-explanation">
+          Allows Breaking the Barrier to check pages on this site
+          automatically. Text stays on this device.
+        </p>
+        <p
+          id="site-status"
+          class="site-status"
+          data-state="idle"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </section>
     </main>
     <script type="module" src="./popup.ts"></script>
   </body>

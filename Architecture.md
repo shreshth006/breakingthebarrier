@@ -1575,6 +1575,34 @@ store current page content or session state. Permission grants and registered
 content scripts remain separate browser state that the next Phase 3 slice must
 reconcile against these policies.
 
+### D-17 — Permission-first remembered-site registration
+
+**Decision:** The popup requests one concrete current-origin match pattern
+directly inside the Remember switch's user gesture. Only after Chrome confirms
+the grant does a typed service-worker command save `ask` policy and reconcile a
+persistent main-frame content registration. Registration IDs are stable opaque
+64-bit hashes of canonical origins; definitions are compared and repaired on
+install, browser startup, permission events, and preference changes. Missing
+permission deletes stale policy and managed registration. Forgetting removes
+policy and registration before revoking the origin grant. Registration and
+permission failures leave the switch off and never claim the site is saved.
+
+**Reason:** Chrome owns the permission confirmation and requires a user gesture,
+while durable registration is service-worker coordination state. Separating
+the two preserves that gesture, prevents policy from claiming access that was
+denied, and makes worker suspension/restart recovery deterministic.
+
+**Alternatives considered:** Requesting permission after asynchronous worker
+round trips, storing full URLs, static `<all_urls>` scripts, letting the popup
+own registrations, random registration IDs, and treating stored policy as proof
+of a browser grant.
+
+**Trade-offs:** The `ask` registration currently loads only the inert,
+idempotent content bootstrap; automatic inspection and its page prompt are the
+next Phase 3 slice. Headless Chromium leaves the browser-owned grant prompt
+pending, so real grant confirmation remains a manual gate while deterministic
+tests cover grant, denial, rollback, and revoke orchestration.
+
 ## 28. Scenario validation
 
 ### Static article

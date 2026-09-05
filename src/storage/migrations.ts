@@ -7,6 +7,7 @@ import type {
   SitePolicy,
   SitePreference,
 } from "./schema";
+import { normalizeOrigin } from "../shared/origins";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -14,21 +15,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isSitePolicy(value: unknown): value is SitePolicy {
   return value === "ask" || value === "always" || value === "disabled";
-}
-
-export function normalizeOrigin(value: string): string | null {
-  try {
-    const url = new URL(value);
-    if (
-      (url.protocol !== "https:" && url.protocol !== "http:") ||
-      url.hostname.length === 0
-    ) {
-      return null;
-    }
-    return url.origin;
-  } catch {
-    return null;
-  }
 }
 
 function readSites(value: unknown): Readonly<Record<string, SitePreference>> {
@@ -117,4 +103,3 @@ export function migratePreferences(value: unknown): PreferencesSchema {
   }
   return createDefaultPreferences();
 }
-

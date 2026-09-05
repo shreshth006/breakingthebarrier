@@ -1,4 +1,5 @@
 import {
+  MAX_ORIGIN_LENGTH,
   MAX_REQUEST_ID_LENGTH,
   PROTOCOL_VERSION,
 } from "./config";
@@ -15,6 +16,8 @@ import type {
   PageCommandRequest,
   PageCommandResponse,
   PageStatusReason,
+  SitePolicyRequest,
+  SitePolicyResponse,
   ProcessorMemoryDiagnosticInternalRequest,
   ProcessorMemoryDiagnosticInternalResponse,
   ProcessorMemoryDiagnosticRequest,
@@ -34,6 +37,7 @@ import type {
   TransliterationBatchRequest,
   TransliterationBatchResponse,
 } from "./messages";
+import type { SitePolicy } from "../storage/schema";
 import {
   readTransliterationRequests,
   readTransliterationResults,
@@ -53,6 +57,23 @@ function isRequestId(value: unknown): value is string {
     value.length > 0 &&
     value.length <= MAX_REQUEST_ID_LENGTH
   );
+}
+
+function isOrigin(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_ORIGIN_LENGTH
+  );
+}
+
+function readSitePolicy(value: unknown): SitePolicy | null | undefined {
+  return value === null ||
+    value === "ask" ||
+    value === "always" ||
+    value === "disabled"
+    ? value
+    : undefined;
 }
 
 function invalidMessage(requestId: string | null): ValidationResult<never> {
@@ -271,6 +292,72 @@ export function validatePageCommandResponse(
     "popup",
     "page.command.response",
   ) as ValidationResult<PageCommandResponse>;
+}
+
+export function validateSitePolicyRequest(
+  value: unknown,
+): ValidationResult<SitePolicyRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const policy = readSitePolicy(value.policy);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "serviceWorker" ||
+    value.type !== "site.policy.set" ||
+    requestId === null ||
+    !isOrigin(value.origin) ||
+    policy === undefined
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "serviceWorker",
+      type: "site.policy.set",
+      requestId,
+      origin: value.origin,
+      policy,
+    },
+  };
+}
+
+export function validateSitePolicyResponse(
+  value: unknown,
+): ValidationResult<SitePolicyResponse> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const policy = readSitePolicy(value.policy);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "popup" ||
+    value.type !== "site.policy.response" ||
+    requestId === null ||
+    !isOrigin(value.origin) ||
+    policy === undefined ||
+    typeof value.permissionGranted !== "boolean" ||
+    typeof value.registered !== "boolean"
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "popup",
+      type: "site.policy.response",
+      requestId,
+      origin: value.origin,
+      policy,
+      permissionGranted: value.permissionGranted,
+      registered: value.registered,
+    },
+  };
 }
 
 export function validateProcessorReleaseRequest(

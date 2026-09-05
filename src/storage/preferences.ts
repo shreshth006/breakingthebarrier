@@ -1,4 +1,5 @@
-import { migratePreferences, normalizeOrigin } from "./migrations";
+import { migratePreferences } from "./migrations";
+import { normalizeOrigin } from "../shared/origins";
 import {
   PREFERENCES_STORAGE_KEY,
   PREFERENCE_SCHEMA_VERSION,

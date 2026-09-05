@@ -334,9 +334,17 @@ Do not proceed to user-facing persistence until the critical Spotify-like fixtur
 implemented with privacy-safe defaults, a pure legacy migration, canonical
 HTTP(S)-origin keys, serialized patches, storage-change publication, and
 future-schema protection. The popup now derives explicit Original, Starting,
-On, Partial, and Unavailable views from the typed current-frame summary. Site
-permission requests, persistent registration reconciliation, and the in-page
-detection prompt remain incomplete, so Phase 3 is not yet a release candidate.
+On, Partial, and Unavailable views from the typed current-frame summary and
+offers a current-origin-only remembered-site control with local-processing
+copy. Deterministically hashed programmatic registrations reconcile on install,
+startup, permission changes, and preference changes; missing permission removes
+stale policy and registration. Grant, denial, rollback, forget, idempotence,
+repair, and revocation paths have deterministic coverage, while packaged
+Chromium covers the available UI and missing-permission boundary. Headless
+Chromium cannot accept its own optional-host confirmation prompt, so a real
+grant remains a manual-browser gate. Automatic remembered-site inspection and
+the in-page detection prompt remain incomplete, so Phase 3 is not yet a release
+candidate.
 
 ### Objective
 

@@ -4,6 +4,7 @@ import type {
   TransliterationRequest,
   TransliterationResult,
 } from "../engines/contracts";
+import type { SitePolicy } from "../storage/schema";
 
 export type MessageTarget =
   | "serviceWorker"
@@ -182,6 +183,26 @@ export interface PageCommandResponse extends FrameSessionSummary {
   readonly requestId: string;
 }
 
+export interface SitePolicyRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "site.policy.set";
+  readonly requestId: string;
+  readonly origin: string;
+  readonly policy: SitePolicy | null;
+}
+
+export interface SitePolicyResponse {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "popup";
+  readonly type: "site.policy.response";
+  readonly requestId: string;
+  readonly origin: string;
+  readonly policy: SitePolicy | null;
+  readonly permissionGranted: boolean;
+  readonly registered: boolean;
+}
+
 export interface TransliterationBatchRequest {
   readonly protocolVersion: typeof PROTOCOL_VERSION;
   readonly target: "serviceWorker";
@@ -290,6 +311,40 @@ export function createPageCommandResponse(
     eligibleNodes: summary.eligibleNodes,
     processedNodes: summary.processedNodes,
     failedNodes: summary.failedNodes,
+  };
+}
+
+export function createSitePolicyRequest(
+  requestId: string,
+  origin: string,
+  policy: SitePolicy | null,
+): SitePolicyRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "site.policy.set",
+    requestId,
+    origin,
+    policy,
+  };
+}
+
+export function createSitePolicyResponse(
+  requestId: string,
+  origin: string,
+  policy: SitePolicy | null,
+  permissionGranted: boolean,
+  registered: boolean,
+): SitePolicyResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "popup",
+    type: "site.policy.response",
+    requestId,
+    origin,
+    policy,
+    permissionGranted,
+    registered,
   };
 }
 

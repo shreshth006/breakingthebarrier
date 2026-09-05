@@ -6,8 +6,9 @@ Current milestone: A user-invoked main-frame session can romanize eligible
 Japanese text on a static page locally, preserve mixed and excluded content,
 and restore still-owned text exactly while incrementally tracking dynamic DOM
 changes. Phase 3 now has a versioned local preference boundary and explicit
-popup state presentation; remembered-site permissions and page prompting are
-the next incomplete slice.
+popup state presentation plus remembered-site permission and registration
+coordination. Automatic authorized-site inspection and page prompting are the
+next incomplete slice.
 
 Last verified working state: The packaged MV3 extension runs offline in
 Chromium 151, receives an action-granted `activeTab`, injects one isolated-world
@@ -65,6 +66,16 @@ source strings, and releases the processor after the final tracked session.
 - Refactored popup presentation through a tested state model with visible
   Original, Starting, On, Partial, and Unavailable badges and accurate busy,
   retry, restoration, and restricted-page controls.
+- Added a native Remember-for-this-site switch that requests only the concrete
+  current HTTP(S) origin, displays only its host, explains local processing,
+  saves policy only after grant, rolls back failed saves, and removes access on
+  forget.
+- Added deterministic opaque registration IDs and reconciliation on extension
+  install, browser startup, permission changes, and preference changes. It
+  repairs mismatched managed scripts, avoids duplicates, leaves unrelated
+  registrations alone, and removes policy/registration after permission loss.
+- Added typed, bounded site-policy request/response messages and explicit
+  extension-page versus content-script sender validation.
 
 # Architecture Decisions
 
@@ -102,6 +113,9 @@ source strings, and releases the processor after the final tracked session.
 - Persistent preferences use one schema-versioned local object. Site keys are
   origins only; paths, titles, text, caches, and session state are never stored.
   A newer unknown schema fails closed instead of being replaced by defaults.
+- Optional host access is permission-first. The popup owns the immediate user
+  gesture; the service worker owns policy and persistent registration. Stored
+  policy alone is never treated as proof of a browser grant.
 
 # Final Measurements
 
@@ -118,12 +132,12 @@ diagnostic garbage collection at both renderer baselines:
 - exact first-node restoration after stop: passed.
 
 Latest Phase 1/2 large-page regression rerun measured 4.0 MiB retained renderer
-growth, 22.1 MiB aggregate Chromium PSS movement, and zero long tasks; the
+growth, 19.6 MiB aggregate Chromium PSS movement, and zero long tasks; the
 20 MiB page-side retained budget remains the applicable limit.
 
 Phase 2 dynamic fixture:
 
-- 1,000 added Japanese text nodes converged in 293 ms in the latest full-suite
+- 1,000 added Japanese text nodes converged in 245 ms in the latest full-suite
   run (207 ms at the Phase 2 completion gate);
 - zero observed page long tasks over 50 ms;
 - same-node, added-text, added-subtree, replacement, exclusion, rapid-source,
@@ -156,6 +170,10 @@ Phase 0 retained processor reference remains:
   bookkeeping, and processor lifecycle.
 - `src/storage/`: versioned preference schema, pure migrations, canonical
   origin handling, serialized local persistence, and change publication.
+- `src/background/registrations.ts`: deterministic remembered-origin content
+  registrations and restart/permission reconciliation.
+- `src/platform/site-access.ts`: popup-owned current-site and optional-origin
+  permission adapter.
 - `src/ui/popup/popup-view.ts`: pure current-page state presentation used by
   the accessible popup controls.
 - `tests/integration/static-dom.spec.ts`: packaged static/dynamic articles,
@@ -183,23 +201,26 @@ Phase 0 retained processor reference remains:
 
 # Current TODO
 
-- Implement current-origin permission request/denial/revocation behavior on top
-  of the new preference store.
-- Reconcile remembered-site policies with persistent programmatic content-script
-  registrations across worker restarts before adding the in-page prompt.
+- Add lightweight Japanese inspection for automatically injected remembered
+  sites without loading the dictionary or changing page text.
+- Mount the accessible, non-modal detection prompt in a marked Shadow root and
+  connect ask/always policy to inspect/start behavior.
+- Run the real-browser optional-host grant/forget checklist; headless Chromium
+  cannot accept its browser-owned permission confirmation prompt.
 
 # Tests
 
 Final release gates:
 
-- `npm run test` — 16 Vitest files with 102 passing tests, including preference
-  defaults/migrations/storage changes, popup state, and all Phase 1/2 dynamic
-  regressions.
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 102 unit
+- `npm run test` — 18 Vitest files with 113 passing tests, including preference
+  defaults/migrations/storage changes, remembered-site permission orchestration,
+  registration reconciliation, popup state, and all Phase 1/2 regressions.
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 113 unit
   tests, both production bundles, and the distribution
   inventory all passed.
-- `npm run test:integration` — all six packaged Chromium tests passed: the
+- `npm run test:integration` — all seven packaged Chromium tests passed: the
   staged and five-run processor lifecycle, offline engine and mixed-text path,
+  remembered-site UI/missing-permission reconciliation,
   exact static DOM replacement/restoration, the realistic hardening fixture,
   the Phase 2 dynamic/stress fixture, and the 5,000-node page-side gate.
 - Ad hoc real-page Chromium smoke: `https://ja.wikipedia.org/wiki/メインページ`
@@ -221,7 +242,7 @@ Test: `npm run verify && npm run test:integration`
 
 # Notes for Next Agent
 
-Phase 2 is complete. Phase 3 has begun with preferences and popup state. Do not
-add periodic rescans, broad attribute observation, or site selectors. Continue
-with remembered-site permission and registration reconciliation, then the
-authorized-site detection prompt.
+Phase 2 is complete. Phase 3 now includes preferences, popup state, and
+permission-first remembered-site registrations. Do not add periodic rescans,
+broad attribute observation, or site selectors. Continue with lightweight
+authorized-site detection and the marked Shadow-root page prompt.

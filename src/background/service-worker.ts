@@ -16,6 +16,7 @@ import {
   createProcessorMemoryDiagnosticResponse,
   createProcessorProbeRequest,
   createProcessorReleaseResponse,
+  createSitePolicyResponse,
   createTransliterationBatchResponse,
 } from "../shared/messages";
 import type {
@@ -29,6 +30,8 @@ import type {
   ProcessorMemoryDiagnosticResponse,
   ProcessorReleaseRequest,
   ProcessorReleaseResponse,
+  SitePolicyRequest,
+  SitePolicyResponse,
   TransliterationBatchRequest,
   TransliterationBatchResponse,
 } from "../shared/messages";
@@ -43,6 +46,7 @@ import {
   validateProcessorMemoryDiagnosticRequest,
   validateProcessorProbeResponse,
   validateProcessorReleaseRequest,
+  validateSitePolicyRequest,
   validateTransliterationBatchRequest,
 } from "../shared/validation";
 import {
@@ -51,20 +55,40 @@ import {
 } from "../shared/config";
 import { resultsMatchRequests } from "../shared/transliteration-validation";
 import { PreferenceStore } from "../storage/preferences";
+import { normalizeOrigin, originMatchPattern } from "../shared/origins";
+import { RegistrationManager } from "./registrations";
 
 const preferenceStore = new PreferenceStore(
   chrome.storage.local,
   chrome.storage.onChanged,
 );
+const registrationManager = new RegistrationManager(
+  preferenceStore,
+  chrome.scripting,
+  chrome.permissions,
+);
 
-void preferenceStore.get().catch(() => undefined);
+function reconcileRegistrations(): void {
+  void registrationManager.reconcile().catch(() => undefined);
+}
+
+void preferenceStore.get().then(reconcileRegistrations).catch(() => undefined);
 
 chrome.runtime.onInstalled.addListener(() => {
-  void preferenceStore.get().catch(() => undefined);
+  reconcileRegistrations();
 });
+
+chrome.runtime.onStartup.addListener(reconcileRegistrations);
+chrome.permissions.onAdded.addListener(reconcileRegistrations);
+chrome.permissions.onRemoved.addListener(reconcileRegistrations);
+preferenceStore.subscribe(reconcileRegistrations);
 
 function isInternalSender(sender: chrome.runtime.MessageSender): boolean {
   return sender.id === chrome.runtime.id;
+}
+
+function isExtensionPageSender(sender: chrome.runtime.MessageSender): boolean {
+  return sender.url?.startsWith(chrome.runtime.getURL("")) === true;
 }
 
 function callerTarget(sender: chrome.runtime.MessageSender): CallerTarget {
@@ -305,6 +329,66 @@ async function activeTabId(): Promise<number | null> {
   return tab?.id ?? null;
 }
 
+async function handleSitePolicy(
+  request: SitePolicyRequest,
+): Promise<SitePolicyResponse | HealthErrorResponse> {
+  const origin = normalizeOrigin(request.origin);
+  try {
+    if (origin === null || origin !== request.origin) {
+      throw new Error("Site policy origin is not canonical");
+    }
+    const permission = { origins: [originMatchPattern(origin)] };
+    if (request.policy === null || request.policy === "disabled") {
+      await preferenceStore.patch({
+        site: { origin, policy: request.policy },
+        sitePermissionExplained: true,
+      });
+      await registrationManager.reconcile();
+      await chrome.permissions.remove(permission);
+      return createSitePolicyResponse(
+        request.requestId,
+        origin,
+        request.policy,
+        false,
+        false,
+      );
+    }
+    if (!(await chrome.permissions.contains(permission))) {
+      return createSitePolicyResponse(
+        request.requestId,
+        origin,
+        null,
+        false,
+        false,
+      );
+    }
+    await preferenceStore.patch({
+      site: { origin, policy: request.policy },
+      sitePermissionExplained: true,
+    });
+    const reconciliation = await registrationManager.reconcile();
+    return createSitePolicyResponse(
+      request.requestId,
+      origin,
+      request.policy,
+      true,
+      reconciliation.expected > 0 &&
+        !reconciliation.missingPermissionOrigins.includes(origin),
+    );
+  } catch {
+    return createHealthErrorResponse(
+      "popup",
+      createBtbError(
+        "invalid-message",
+        "platform",
+        "browser-api",
+        false,
+        request.requestId,
+      ),
+    );
+  }
+}
+
 async function handlePageCommand(
   request: PageCommandRequest,
 ): Promise<PageCommandResponse> {
@@ -381,13 +465,15 @@ chrome.runtime.onMessage.addListener(
     const diagnosticRequest = validateProcessorMemoryDiagnosticRequest(message);
     const releaseRequest = validateProcessorReleaseRequest(message);
     const pageCommandRequest = validatePageCommandRequest(message);
+    const sitePolicyRequest = validateSitePolicyRequest(message);
     const target = callerTarget(sender);
     const validRequest =
       ensureRequest.ok ||
       batchRequest.ok ||
       diagnosticRequest.ok ||
       releaseRequest.ok ||
-      pageCommandRequest.ok;
+      pageCommandRequest.ok ||
+      sitePolicyRequest.ok;
     if (!validRequest) {
       sendResponse(createHealthErrorResponse(target, ensureRequest.error));
       return false;
@@ -412,6 +498,8 @@ chrome.runtime.onMessage.addListener(
                     ? releaseRequest.value.requestId
                     : pageCommandRequest.ok
                       ? pageCommandRequest.value.requestId
+                      : sitePolicyRequest.ok
+                        ? sitePolicyRequest.value.requestId
                       : null,
           ),
         ),
@@ -435,7 +523,7 @@ chrome.runtime.onMessage.addListener(
         sendResponse,
       );
     } else if (pageCommandRequest.ok) {
-      if (sender.tab !== undefined) {
+      if (sender.tab !== undefined && !isExtensionPageSender(sender)) {
         sendResponse(
           createHealthErrorResponse(
             "content",
@@ -451,6 +539,23 @@ chrome.runtime.onMessage.addListener(
         return false;
       }
       void handlePageCommand(pageCommandRequest.value).then(sendResponse);
+    } else if (sitePolicyRequest.ok) {
+      if (sender.tab !== undefined && !isExtensionPageSender(sender)) {
+        sendResponse(
+          createHealthErrorResponse(
+            "content",
+            createBtbError(
+              "invalid-sender",
+              "messaging",
+              "boundary",
+              false,
+              sitePolicyRequest.value.requestId,
+            ),
+          ),
+        );
+        return false;
+      }
+      void handleSitePolicy(sitePolicyRequest.value).then(sendResponse);
     }
     return true;
   },

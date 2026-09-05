@@ -21,6 +21,8 @@ import {
   createProcessorProbeResponse,
   createProcessorReleaseRequest,
   createProcessorReleaseResponse,
+  createSitePolicyRequest,
+  createSitePolicyResponse,
   createTransliterationBatchRequest,
   createTransliterationBatchResponse,
 } from "../../src/shared/messages";
@@ -42,6 +44,8 @@ import {
   validateProcessorMemoryStageEvent,
   validateProcessorReleaseRequest,
   validateProcessorReleaseResponse,
+  validateSitePolicyRequest,
+  validateSitePolicyResponse,
   validateTransliterationBatchRequest,
   validateTransliterationBatchResponse,
 } from "../../src/shared/validation";
@@ -129,6 +133,35 @@ describe("runtime message validation", () => {
     });
     expect(
       validatePageCommandResponse({ ...pageResponse, failedNodes: 5 }).ok,
+    ).toBe(false);
+  });
+
+  it("validates bounded remembered-site policy messages", () => {
+    const request = createSitePolicyRequest(
+      "site-1",
+      "https://example.com",
+      "ask",
+    );
+    const response = createSitePolicyResponse(
+      "site-1",
+      "https://example.com",
+      "ask",
+      true,
+      true,
+    );
+    expect(validateSitePolicyRequest(request)).toEqual({
+      ok: true,
+      value: request,
+    });
+    expect(validateSitePolicyResponse(response)).toEqual({
+      ok: true,
+      value: response,
+    });
+    expect(
+      validateSitePolicyRequest({ ...request, policy: "unknown" }).ok,
+    ).toBe(false);
+    expect(
+      validateSitePolicyRequest({ ...request, origin: "x".repeat(2_049) }).ok,
     ).toBe(false);
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { migratePreferences, normalizeOrigin } from "../../src/storage/migrations";
+import { migratePreferences } from "../../src/storage/migrations";
+import { normalizeOrigin } from "../../src/shared/origins";
 import { PreferenceStore } from "../../src/storage/preferences";
 import type {
   LocalStorageArea,
