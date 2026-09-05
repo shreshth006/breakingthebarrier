@@ -2,7 +2,7 @@
 
 - **Planning bootstrap:** Complete
 - **Current implementation phase:** Phase 3 — in progress
-- **Next phase:** Phase 3 remembered-site access and detection prompt
+- **Next phase:** Phase 3 policy controls, accessibility, and release gates
 - **Last updated:** 2026-09-05
 
 ## 1. Roadmap principles
@@ -338,13 +338,19 @@ On, Partial, and Unavailable views from the typed current-frame summary and
 offers a current-origin-only remembered-site control with local-processing
 copy. Deterministically hashed programmatic registrations reconcile on install,
 startup, permission changes, and preference changes; missing permission removes
-stale policy and registration. Grant, denial, rollback, forget, idempotence,
-repair, and revocation paths have deterministic coverage, while packaged
-Chromium covers the available UI and missing-permission boundary. Headless
-Chromium cannot accept its own optional-host confirmation prompt, so a real
-grant remains a manual-browser gate. Automatic remembered-site inspection and
-the in-page detection prompt remain incomplete, so Phase 3 is not yet a release
-candidate.
+stale policy and registration. Authorized `ask` pages now use an engine-free
+text/subtree detector and a marked, non-modal Shadow-root prompt; authorized
+`always` pages enter the existing controller directly. Typed service-worker
+handshakes revalidate sender origin, stored policy, feature flags, and actual
+permission before either path. Ephemeral remembered-frame ownership lets
+preference or permission deactivation dismiss pending UI and restore active
+text exactly. Grant, denial, rollback, forget, idempotence, repair, prompt,
+detection, and revocation paths have deterministic coverage, while packaged
+Chromium covers the available UI, missing-permission boundary, and live
+deactivation restore. Headless Chromium cannot accept its own optional-host
+confirmation prompt, so a real grant remains a manual-browser gate. Phase 3
+policy selection UI, automated accessibility evidence, and final
+manual/distribution gates remain, so Phase 3 is not yet a release candidate.
 
 ### Objective
 

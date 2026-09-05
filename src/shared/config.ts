@@ -26,7 +26,11 @@ export const CONTENT_JAPANESE_CACHE_NAMESPACE =
   "ja:lindera-5.3.0:ipadic-5.3.0:ascii-hepburn-v1:japanese-spacing-v1";
 export const CONTENT_SCRIPT_PATH = "assets/content-script.js";
 export const CONTENT_IGNORE_ATTRIBUTE = "data-btb-ignore";
+export const CONTENT_UI_ATTRIBUTE = "data-btb-ui";
+export const CONTENT_JAPANESE_DETECTION_MIN_NODES = 1;
 export const ACTIVE_FRAME_SESSION_STORAGE_KEY = "activeFrameSessionsV1";
+export const REMEMBERED_FRAME_SESSION_STORAGE_KEY =
+  "rememberedFrameSessionsV1";
 
 export const INTERNAL_KANA_PROBE = "とうきょう";
 

@@ -16,6 +16,7 @@ import {
   createProcessorMemoryDiagnosticResponse,
   createProcessorProbeRequest,
   createProcessorReleaseResponse,
+  createRememberedPageResponse,
   createSitePolicyResponse,
   createTransliterationBatchResponse,
 } from "../shared/messages";
@@ -30,6 +31,8 @@ import type {
   ProcessorMemoryDiagnosticResponse,
   ProcessorReleaseRequest,
   ProcessorReleaseResponse,
+  RememberedPageRequest,
+  RememberedPageResponse,
   SitePolicyRequest,
   SitePolicyResponse,
   TransliterationBatchRequest,
@@ -46,17 +49,17 @@ import {
   validateProcessorMemoryDiagnosticRequest,
   validateProcessorProbeResponse,
   validateProcessorReleaseRequest,
+  validateRememberedPageRequest,
   validateSitePolicyRequest,
   validateTransliterationBatchRequest,
 } from "../shared/validation";
-import {
-  ACTIVE_FRAME_SESSION_STORAGE_KEY,
-  CONTENT_SCRIPT_PATH,
-} from "../shared/config";
+import { CONTENT_SCRIPT_PATH } from "../shared/config";
 import { resultsMatchRequests } from "../shared/transliteration-validation";
 import { PreferenceStore } from "../storage/preferences";
 import { normalizeOrigin, originMatchPattern } from "../shared/origins";
 import { RegistrationManager } from "./registrations";
+import { decideRememberedPageAction } from "./remembered-pages";
+import { FrameSessionStore } from "./frame-sessions";
 
 const preferenceStore = new PreferenceStore(
   chrome.storage.local,
@@ -67,6 +70,7 @@ const registrationManager = new RegistrationManager(
   chrome.scripting,
   chrome.permissions,
 );
+const frameSessionStore = new FrameSessionStore(chrome.storage.session);
 
 function reconcileRegistrations(): void {
   void registrationManager.reconcile().catch(() => undefined);
@@ -80,8 +84,6 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(reconcileRegistrations);
 chrome.permissions.onAdded.addListener(reconcileRegistrations);
-chrome.permissions.onRemoved.addListener(reconcileRegistrations);
-preferenceStore.subscribe(reconcileRegistrations);
 
 function isInternalSender(sender: chrome.runtime.MessageSender): boolean {
   return sender.id === chrome.runtime.id;
@@ -268,55 +270,57 @@ const restrictedPageSummary = {
   failedNodes: 0,
 } as const;
 
-let sessionMutation = Promise.resolve();
+async function stopRememberedFrames(origins: ReadonlySet<string>): Promise<void> {
+  const stoppedTabIds = await frameSessionStore.takeRemembered(origins);
+  await stopRememberedTabIds(stoppedTabIds);
+}
 
-function readActiveTabIds(value: unknown): Set<number> {
-  if (!Array.isArray(value)) {
-    return new Set();
+async function stopRememberedTabIds(
+  stoppedTabIds: readonly number[],
+): Promise<void> {
+  if (stoppedTabIds.length === 0) {
+    return;
   }
-  return new Set(
-    value.filter(
-      (entry): entry is number =>
-        typeof entry === "number" &&
-        Number.isSafeInteger(entry) &&
-        entry >= 0,
-    ),
+  await Promise.all(
+    stoppedTabIds.map(async (tabId) => {
+      try {
+        await chrome.tabs.sendMessage(
+          tabId,
+          createContentCommandRequest(crypto.randomUUID(), "stop"),
+          { frameId: 0 },
+        );
+      } catch {
+        // A closed or navigating tab already discarded its page state.
+      }
+    }),
   );
+  let activeCount = 0;
+  for (const tabId of stoppedTabIds) {
+    activeCount = await frameSessionStore.setActive(tabId, false);
+  }
+  await releaseProcessorWhenUnused(activeCount);
 }
 
-function updateActiveTabSession(
-  tabId: number,
-  active: boolean,
-): Promise<number> {
-  let resolveCount!: (count: number) => void;
-  let rejectCount!: (error: unknown) => void;
-  const result = new Promise<number>((resolve, reject) => {
-    resolveCount = resolve;
-    rejectCount = reject;
-  });
-  sessionMutation = sessionMutation
-    .then(async () => {
-      const stored = await chrome.storage.session.get(
-        ACTIVE_FRAME_SESSION_STORAGE_KEY,
-      );
-      const activeTabs = readActiveTabIds(
-        stored[ACTIVE_FRAME_SESSION_STORAGE_KEY],
-      );
-      if (active) {
-        activeTabs.add(tabId);
-      } else {
-        activeTabs.delete(tabId);
+async function stopDisallowedRememberedFrames(): Promise<void> {
+  const preferences = await preferenceStore.get();
+  const allowedOrigins = new Set<string>();
+  if (preferences.globalEnabled && preferences.languages.ja.enabled) {
+    for (const [origin, site] of Object.entries(preferences.sites)) {
+      if (site.policy !== "disabled") {
+        allowedOrigins.add(origin);
       }
-      await chrome.storage.session.set({
-        [ACTIVE_FRAME_SESSION_STORAGE_KEY]: [...activeTabs],
-      });
-      resolveCount(activeTabs.size);
-    })
-    .catch((error: unknown) => {
-      rejectCount(error);
-    });
-  return result;
+    }
+  }
+  const tabIds = await frameSessionStore.takeDisallowedRemembered(
+    allowedOrigins,
+  );
+  await stopRememberedTabIds(tabIds);
 }
+
+preferenceStore.subscribe(() => {
+  reconcileRegistrations();
+  void stopDisallowedRememberedFrames().catch(() => undefined);
+});
 
 async function releaseProcessorWhenUnused(activeSessionCount: number): Promise<void> {
   if (activeSessionCount === 0) {
@@ -344,6 +348,7 @@ async function handleSitePolicy(
         sitePermissionExplained: true,
       });
       await registrationManager.reconcile();
+      await stopRememberedFrames(new Set([origin]));
       await chrome.permissions.remove(permission);
       return createSitePolicyResponse(
         request.requestId,
@@ -389,6 +394,107 @@ async function handleSitePolicy(
   }
 }
 
+async function handleRememberedPage(
+  request: RememberedPageRequest,
+  sender: chrome.runtime.MessageSender,
+): Promise<RememberedPageResponse | HealthErrorResponse> {
+  const tabId = sender.tab?.id;
+  const frameId = sender.frameId;
+  const origin = normalizeOrigin(sender.url ?? "");
+  if (
+    tabId === undefined ||
+    frameId !== 0 ||
+    origin === null ||
+    isExtensionPageSender(sender)
+  ) {
+    return createHealthErrorResponse(
+      "content",
+      createBtbError(
+        "invalid-sender",
+        "messaging",
+        "boundary",
+        false,
+        request.requestId,
+      ),
+    );
+  }
+  try {
+    const preferences = await preferenceStore.get();
+    const site = preferences.sites[origin];
+    if (site === undefined || site.policy === "disabled") {
+      await frameSessionStore.setRemembered(tabId, null);
+      return createRememberedPageResponse(
+        request.requestId,
+        "inactive",
+        originalPageSummary,
+      );
+    }
+    const granted = await chrome.permissions.contains({
+      origins: [originMatchPattern(origin)],
+    });
+    if (!granted) {
+      await frameSessionStore.setRemembered(tabId, null);
+      await preferenceStore.patch({ site: { origin, policy: null } });
+      await registrationManager.reconcile();
+      return createRememberedPageResponse(
+        request.requestId,
+        "inactive",
+        originalPageSummary,
+      );
+    }
+    const decision = decideRememberedPageAction(
+      preferences,
+      origin,
+      granted,
+      request.command,
+    );
+    if (decision === "inactive") {
+      await frameSessionStore.setRemembered(tabId, null);
+      return createRememberedPageResponse(
+        request.requestId,
+        "inactive",
+        originalPageSummary,
+      );
+    }
+    await frameSessionStore.setRemembered(tabId, origin);
+    if (decision === "detect") {
+      return createRememberedPageResponse(
+        request.requestId,
+        "ask",
+        originalPageSummary,
+      );
+    }
+    const rawResponse: unknown = await chrome.tabs.sendMessage(
+      tabId,
+      createContentCommandRequest(request.requestId, "start"),
+      { frameId },
+    );
+    const response = validateContentCommandResponse(rawResponse);
+    if (!response.ok || response.value.requestId !== request.requestId) {
+      throw new Error("Remembered frame returned an invalid start response");
+    }
+    const active = response.value.state === "active";
+    const count = await frameSessionStore.setActive(tabId, active);
+    await releaseProcessorWhenUnused(count);
+    return createRememberedPageResponse(
+      request.requestId,
+      active ? "active" : "inactive",
+      response.value,
+    );
+  } catch {
+    return createHealthErrorResponse(
+      "content",
+      createBtbError(
+        "processor-unavailable",
+        "platform",
+        "browser-api",
+        true,
+        request.requestId,
+      ),
+    );
+  }
+}
+
 async function handlePageCommand(
   request: PageCommandRequest,
 ): Promise<PageCommandResponse> {
@@ -416,13 +522,13 @@ async function handlePageCommand(
       );
     }
     if (request.command === "start") {
-      const count = await updateActiveTabSession(
+      const count = await frameSessionStore.setActive(
         tabId,
         response.value.state === "active",
       );
       await releaseProcessorWhenUnused(count);
     } else if (request.command === "stop") {
-      const count = await updateActiveTabSession(tabId, false);
+      const count = await frameSessionStore.setActive(tabId, false);
       await releaseProcessorWhenUnused(count);
     }
     return createPageCommandResponse(request.requestId, response.value);
@@ -435,9 +541,10 @@ async function handlePageCommand(
 }
 
 function removeTabSession(tabId: number): void {
-  void updateActiveTabSession(tabId, false)
+  void frameSessionStore.setActive(tabId, false)
     .then(releaseProcessorWhenUnused)
     .catch(() => undefined);
+  void frameSessionStore.setRemembered(tabId, null).catch(() => undefined);
 }
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -447,6 +554,18 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "loading") {
     removeTabSession(tabId);
+  }
+});
+
+chrome.permissions.onRemoved.addListener((permissions) => {
+  reconcileRegistrations();
+  const origins = new Set(
+    (permissions.origins ?? [])
+      .map((pattern) => normalizeOrigin(pattern))
+      .filter((origin): origin is string => origin !== null),
+  );
+  if (origins.size > 0) {
+    void stopRememberedFrames(origins).catch(() => undefined);
   }
 });
 
@@ -466,6 +585,7 @@ chrome.runtime.onMessage.addListener(
     const releaseRequest = validateProcessorReleaseRequest(message);
     const pageCommandRequest = validatePageCommandRequest(message);
     const sitePolicyRequest = validateSitePolicyRequest(message);
+    const rememberedPageRequest = validateRememberedPageRequest(message);
     const target = callerTarget(sender);
     const validRequest =
       ensureRequest.ok ||
@@ -473,7 +593,8 @@ chrome.runtime.onMessage.addListener(
       diagnosticRequest.ok ||
       releaseRequest.ok ||
       pageCommandRequest.ok ||
-      sitePolicyRequest.ok;
+      sitePolicyRequest.ok ||
+      rememberedPageRequest.ok;
     if (!validRequest) {
       sendResponse(createHealthErrorResponse(target, ensureRequest.error));
       return false;
@@ -500,7 +621,9 @@ chrome.runtime.onMessage.addListener(
                       ? pageCommandRequest.value.requestId
                       : sitePolicyRequest.ok
                         ? sitePolicyRequest.value.requestId
-                      : null,
+                        : rememberedPageRequest.ok
+                          ? rememberedPageRequest.value.requestId
+                          : null,
           ),
         ),
       );
@@ -556,6 +679,10 @@ chrome.runtime.onMessage.addListener(
         return false;
       }
       void handleSitePolicy(sitePolicyRequest.value).then(sendResponse);
+    } else if (rememberedPageRequest.ok) {
+      void handleRememberedPage(rememberedPageRequest.value, sender).then(
+        sendResponse,
+      );
     }
     return true;
   },

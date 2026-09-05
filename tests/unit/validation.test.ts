@@ -23,6 +23,8 @@ import {
   createProcessorReleaseResponse,
   createSitePolicyRequest,
   createSitePolicyResponse,
+  createRememberedPageRequest,
+  createRememberedPageResponse,
   createTransliterationBatchRequest,
   createTransliterationBatchResponse,
 } from "../../src/shared/messages";
@@ -46,6 +48,8 @@ import {
   validateProcessorReleaseResponse,
   validateSitePolicyRequest,
   validateSitePolicyResponse,
+  validateRememberedPageRequest,
+  validateRememberedPageResponse,
   validateTransliterationBatchRequest,
   validateTransliterationBatchResponse,
 } from "../../src/shared/validation";
@@ -134,6 +138,16 @@ describe("runtime message validation", () => {
     expect(
       validatePageCommandResponse({ ...pageResponse, failedNodes: 5 }).ok,
     ).toBe(false);
+    expect(
+      validatePageCommandResponse({
+        ...pageResponse,
+        state: "original",
+        reason: "japanese-detected",
+        eligibleNodes: 1,
+        processedNodes: 0,
+        failedNodes: 0,
+      }).ok,
+    ).toBe(true);
   });
 
   it("validates bounded remembered-site policy messages", () => {
@@ -162,6 +176,35 @@ describe("runtime message validation", () => {
     ).toBe(false);
     expect(
       validateSitePolicyRequest({ ...request, origin: "x".repeat(2_049) }).ok,
+    ).toBe(false);
+  });
+
+  it("validates remembered-page bootstrap and activation messages", () => {
+    const request = createRememberedPageRequest("remembered-1", "bootstrap");
+    const response = createRememberedPageResponse(
+      "remembered-1",
+      "ask",
+      {
+        state: "original",
+        reason: null,
+        eligibleNodes: 0,
+        processedNodes: 0,
+        failedNodes: 0,
+      },
+    );
+    expect(validateRememberedPageRequest(request)).toEqual({
+      ok: true,
+      value: request,
+    });
+    expect(validateRememberedPageResponse(response)).toEqual({
+      ok: true,
+      value: response,
+    });
+    expect(
+      validateRememberedPageRequest({ ...request, command: "stop" }).ok,
+    ).toBe(false);
+    expect(
+      validateRememberedPageResponse({ ...response, action: "prompt" }).ok,
     ).toBe(false);
   });
 

@@ -26,6 +26,15 @@ describe("popup current-page view", () => {
     expect(
       popupViewForSummary(summary({ reason: "no-supported-text" })).status,
     ).toBe("No supported Japanese text found.");
+    expect(
+      popupViewForSummary(
+        summary({ reason: "japanese-detected", eligibleNodes: 2 }),
+      ),
+    ).toMatchObject({
+      badge: "Original",
+      actionLabel: "Romanize this page",
+      status: "Japanese detected. Romanize this page?",
+    });
   });
 
   it("distinguishes fully active and partial results", () => {

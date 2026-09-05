@@ -16,6 +16,10 @@ import type {
   PageCommandRequest,
   PageCommandResponse,
   PageStatusReason,
+  RememberedPageAction,
+  RememberedPageCommand,
+  RememberedPageRequest,
+  RememberedPageResponse,
   SitePolicyRequest,
   SitePolicyResponse,
   ProcessorMemoryDiagnosticInternalRequest,
@@ -76,6 +80,20 @@ function readSitePolicy(value: unknown): SitePolicy | null | undefined {
     : undefined;
 }
 
+function readRememberedPageCommand(
+  value: unknown,
+): RememberedPageCommand | null {
+  return value === "bootstrap" || value === "start" ? value : null;
+}
+
+function readRememberedPageAction(
+  value: unknown,
+): RememberedPageAction | null {
+  return value === "inactive" || value === "ask" || value === "active"
+    ? value
+    : null;
+}
+
 function invalidMessage(requestId: string | null): ValidationResult<never> {
   return {
     ok: false,
@@ -134,6 +152,7 @@ function readFrameSessionState(value: unknown): FrameSessionState | null {
 
 function readPageStatusReason(value: unknown): PageStatusReason | undefined {
   return value === null ||
+    value === "japanese-detected" ||
     value === "no-supported-text" ||
     value === "processor-failure" ||
     value === "restricted-page"
@@ -356,6 +375,67 @@ export function validateSitePolicyResponse(
       policy,
       permissionGranted: value.permissionGranted,
       registered: value.registered,
+    },
+  };
+}
+
+export function validateRememberedPageRequest(
+  value: unknown,
+): ValidationResult<RememberedPageRequest> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const command = readRememberedPageCommand(value.command);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "serviceWorker" ||
+    value.type !== "remembered.page.command" ||
+    requestId === null ||
+    command === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "serviceWorker",
+      type: "remembered.page.command",
+      requestId,
+      command,
+    },
+  };
+}
+
+export function validateRememberedPageResponse(
+  value: unknown,
+): ValidationResult<RememberedPageResponse> {
+  if (!isRecord(value)) {
+    return invalidMessage(null);
+  }
+  const requestId = requestIdFrom(value);
+  const action = readRememberedPageAction(value.action);
+  const summary = readFrameSessionSummary(value);
+  if (
+    !hasProtocol(value) ||
+    value.target !== "content" ||
+    value.type !== "remembered.page.response" ||
+    requestId === null ||
+    action === null ||
+    summary === null
+  ) {
+    return invalidMessage(requestId);
+  }
+  return {
+    ok: true,
+    value: {
+      protocolVersion: PROTOCOL_VERSION,
+      target: "content",
+      type: "remembered.page.response",
+      requestId,
+      action,
+      ...summary,
     },
   };
 }

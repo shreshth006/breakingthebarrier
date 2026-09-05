@@ -140,6 +140,7 @@ export type FrameSessionState =
   | "degraded"
   | "stopping";
 export type PageStatusReason =
+  | "japanese-detected"
   | "no-supported-text"
   | "processor-failure"
   | "restricted-page"
@@ -201,6 +202,25 @@ export interface SitePolicyResponse {
   readonly policy: SitePolicy | null;
   readonly permissionGranted: boolean;
   readonly registered: boolean;
+}
+
+export type RememberedPageCommand = "bootstrap" | "start";
+export type RememberedPageAction = "inactive" | "ask" | "active";
+
+export interface RememberedPageRequest {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "serviceWorker";
+  readonly type: "remembered.page.command";
+  readonly requestId: string;
+  readonly command: RememberedPageCommand;
+}
+
+export interface RememberedPageResponse extends FrameSessionSummary {
+  readonly protocolVersion: typeof PROTOCOL_VERSION;
+  readonly target: "content";
+  readonly type: "remembered.page.response";
+  readonly requestId: string;
+  readonly action: RememberedPageAction;
 }
 
 export interface TransliterationBatchRequest {
@@ -345,6 +365,38 @@ export function createSitePolicyResponse(
     policy,
     permissionGranted,
     registered,
+  };
+}
+
+export function createRememberedPageRequest(
+  requestId: string,
+  command: RememberedPageCommand,
+): RememberedPageRequest {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "serviceWorker",
+    type: "remembered.page.command",
+    requestId,
+    command,
+  };
+}
+
+export function createRememberedPageResponse(
+  requestId: string,
+  action: RememberedPageAction,
+  summary: FrameSessionSummary,
+): RememberedPageResponse {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    target: "content",
+    type: "remembered.page.response",
+    requestId,
+    action,
+    state: summary.state,
+    reason: summary.reason,
+    eligibleNodes: summary.eligibleNodes,
+    processedNodes: summary.processedNodes,
+    failedNodes: summary.failedNodes,
   };
 }
 

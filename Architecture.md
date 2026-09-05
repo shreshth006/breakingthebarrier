@@ -3,7 +3,7 @@
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-09-05
 - **Target:** Chromium desktop, Manifest V3
-- **Implementation status:** Phases 0, 1, and 2 complete; Phase 3 preference and popup-control foundation in progress
+- **Implementation status:** Phases 0, 1, and 2 complete; Phase 3 authorized-site detection and prompt implemented, release controls in progress
 
 ## 1. Repository audit
 
@@ -1597,11 +1597,42 @@ round trips, storing full URLs, static `<all_urls>` scripts, letting the popup
 own registrations, random registration IDs, and treating stored policy as proof
 of a browser grant.
 
-**Trade-offs:** The `ask` registration currently loads only the inert,
-idempotent content bootstrap; automatic inspection and its page prompt are the
-next Phase 3 slice. Headless Chromium leaves the browser-owned grant prompt
-pending, so real grant confirmation remains a manual gate while deterministic
-tests cover grant, denial, rollback, and revoke orchestration.
+**Trade-offs:** The `ask` registration loads only the idempotent content
+bootstrap until the service worker confirms current policy and permission.
+Headless Chromium leaves the browser-owned grant prompt pending, so real grant
+confirmation remains a manual gate while deterministic tests cover grant,
+denial, rollback, and revoke orchestration.
+
+### D-18 — Detection-only remembered-page handshake
+
+**Decision:** A programmatically registered top-frame script performs a typed
+bootstrap handshake before inspecting a remembered page. The service worker
+revalidates the canonical sender origin, stored policy, global/Japanese flags,
+and the concrete optional-host grant. `ask` starts a lightweight event-driven
+Japanese evidence detector that neither loads the dictionary nor changes page
+text; `always` starts the existing controller directly. Once `ask` evidence
+passes the named one-node threshold, a marked, non-modal Shadow-root prompt
+offers Romanize, Not now, and Close. Only Romanize sends the confirmed start
+command. Ephemeral active and remembered tab/origin ownership is serialized in
+`storage.session`, so preference deactivation or permission removal can stop
+the exact live frame and restore owned text before access is revoked.
+
+**Reason:** Persistent permission authorizes automatic inspection, but policy
+still determines whether the extension asks or acts. Keeping detection
+separate from transliteration avoids the substantial processor load and any DOM
+write before confirmation, while session-backed ownership survives service
+worker suspension long enough to make revocation cleanup deterministic.
+
+**Alternatives considered:** Starting the full engine merely to detect text,
+periodic rescans, prompting without rechecking browser permission, persisting
+page URLs or text, global Escape handling, and revoking permission before
+restoration.
+
+**Trade-offs:** The detector deliberately watches only text and added-subtree
+mutations and stops after the first qualifying evidence. The one-node threshold
+is conservative for already authorized sites and remains named configuration.
+Open Shadow DOM, iframes, class/style-only visibility changes, and a real
+automated browser-owned permission acceptance remain outside this slice.
 
 ## 28. Scenario validation
 

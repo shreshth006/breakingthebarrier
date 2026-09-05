@@ -68,6 +68,15 @@ export function popupViewForSummary(
       statusState: "error",
     };
   }
+  if (summary.reason === "japanese-detected") {
+    return {
+      badge: "Original",
+      actionLabel: "Romanize this page",
+      actionDisabled: false,
+      status: "Japanese detected. Romanize this page?",
+      statusState: "idle",
+    };
+  }
   return {
     badge: "Original",
     actionLabel: "Romanize this page",
@@ -79,4 +88,3 @@ export function popupViewForSummary(
     statusState: "idle",
   };
 }
-

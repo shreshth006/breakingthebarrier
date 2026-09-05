@@ -142,6 +142,50 @@ test("remembered-site UI refuses missing permission and reconciles stale policy"
       )
       .toEqual({ site: undefined, registrations: 0 });
     expect(JSON.stringify(refused.preferences)).not.toContain("private-path");
+
+    await page.bringToFront();
+    const started: unknown = await popup.evaluate(async () => {
+      const response: unknown = await chrome.runtime.sendMessage({
+        protocolVersion: 1,
+        target: "serviceWorker",
+        type: "page.command",
+        requestId: "preference-stop-start",
+        command: "start",
+      });
+      return response;
+    });
+    expect(started).toMatchObject({ state: "active", processedNodes: 3 });
+    await expect(page.locator("#headline")).toHaveText("seiza ni naretara");
+
+    await popup.evaluate(async (expectedOrigin) => {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab?.id === undefined) throw new Error("Fixture tab is unavailable");
+      await chrome.storage.session.set({
+        rememberedFrameSessionsV1: [{ tabId: tab.id, origin: expectedOrigin }],
+      });
+      const stored = await chrome.storage.local.get("preferences");
+      const preferences = stored.preferences as Record<string, unknown>;
+      await chrome.storage.local.set({
+        preferences: { ...preferences, globalEnabled: false },
+      });
+    }, origin);
+    await expect(page.locator("#headline")).toHaveText("星座になれたら", {
+      timeout: 5_000,
+    });
+    const sessions = await popup.evaluate(async () => {
+      const stored = await chrome.storage.session.get([
+        "activeFrameSessionsV1",
+        "rememberedFrameSessionsV1",
+      ]);
+      return stored;
+    });
+    expect(sessions).toMatchObject({
+      activeFrameSessionsV1: [],
+      rememberedFrameSessionsV1: [],
+    });
   } finally {
     await context.close();
     await new Promise<void>((resolveClose, rejectClose) => {
