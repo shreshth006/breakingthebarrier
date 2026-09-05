@@ -159,6 +159,45 @@ button[aria-busy="true"]:disabled {
   padding-top: 12px;
 }
 
+.site-policy-control {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.site-policy-control[hidden] {
+  display: none;
+}
+
+.site-policy-control label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.site-policy-control select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--btb-border);
+  border-radius: 8px;
+  padding: 7px 30px 7px 10px;
+  color: var(--btb-text);
+  background: var(--btb-surface);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.site-policy-control select:focus-visible {
+  outline: 3px solid var(--btb-focus);
+  outline-offset: 2px;
+}
+
+.site-policy-control select:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .site-memory-control {
   display: flex;
   align-items: center;
@@ -254,6 +293,10 @@ button[aria-busy="true"]:disabled {
   }
 
   .page-state {
+    border-color: CanvasText;
+  }
+
+  .site-policy-control select {
     border-color: CanvasText;
   }
 }

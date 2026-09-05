@@ -16,6 +16,7 @@ import {
 } from "../../platform/site-access";
 import type { CurrentSite } from "../../platform/site-access";
 import { PreferenceStore } from "../../storage/preferences";
+import type { SitePolicy } from "../../storage/schema";
 import { changeRememberedSite } from "./remember-site";
 
 const buttonElement = document.querySelector("#page-action");
@@ -25,6 +26,8 @@ const siteMemoryElement = document.querySelector("#site-memory");
 const rememberElement = document.querySelector("#remember-site");
 const siteHostElement = document.querySelector("#site-host");
 const siteStatusElement = document.querySelector("#site-status");
+const sitePolicyControlElement = document.querySelector("#site-policy-control");
+const sitePolicyElement = document.querySelector("#site-policy");
 
 if (
   !(buttonElement instanceof HTMLButtonElement) ||
@@ -33,7 +36,9 @@ if (
   !(siteMemoryElement instanceof HTMLElement) ||
   !(rememberElement instanceof HTMLInputElement) ||
   !(siteHostElement instanceof HTMLElement) ||
-  !(siteStatusElement instanceof HTMLElement)
+  !(siteStatusElement instanceof HTMLElement) ||
+  !(sitePolicyControlElement instanceof HTMLElement) ||
+  !(sitePolicyElement instanceof HTMLSelectElement)
 ) {
   throw new Error("Required popup controls are missing");
 }
@@ -45,9 +50,12 @@ const siteMemory = siteMemoryElement;
 const rememberSite = rememberElement;
 const siteHost = siteHostElement;
 const siteStatus = siteStatusElement;
+const sitePolicyControl = sitePolicyControlElement;
+const sitePolicy = sitePolicyElement;
 const preferenceStore = new PreferenceStore(chrome.storage.local);
 let currentState: FrameSessionSummary["state"] = "original";
 let currentSite: CurrentSite | null = null;
+let currentSitePolicy: "ask" | "always" | undefined;
 
 function setStatus(
   message: string,
@@ -99,23 +107,32 @@ async function sendCommand(command: PageCommand): Promise<void> {
   }
 }
 
-async function setRememberedSite(
+async function setRememberedSitePolicy(
   site: CurrentSite,
-  remember: boolean,
+  policy: SitePolicy | null,
 ): Promise<boolean> {
   const requestId = crypto.randomUUID();
   const rawResponse: unknown = await chrome.runtime.sendMessage(
-    createSitePolicyRequest(requestId, site.origin, remember ? "ask" : null),
+    createSitePolicyRequest(requestId, site.origin, policy),
   );
   const response = validateSitePolicyResponse(rawResponse);
   return (
     response.ok &&
     response.value.requestId === requestId &&
     response.value.origin === site.origin &&
-    (remember
+    (policy === "ask" || policy === "always"
       ? response.value.permissionGranted && response.value.registered
       : response.value.policy === null)
   );
+}
+
+function renderSitePolicy(policy: SitePolicy | undefined): void {
+  const remembered = policy === "ask" || policy === "always";
+  currentSitePolicy = remembered ? policy : undefined;
+  rememberSite.checked = remembered;
+  sitePolicyControl.hidden = !remembered;
+  sitePolicy.disabled = !remembered;
+  sitePolicy.value = policy === "always" ? "always" : "ask";
 }
 
 async function loadSiteMemory(): Promise<void> {
@@ -128,7 +145,7 @@ async function loadSiteMemory(): Promise<void> {
   siteMemory.hidden = false;
   const preferences = await preferenceStore.get();
   const policy = preferences.sites[site.origin]?.policy;
-  rememberSite.checked = policy === "ask" || policy === "always";
+  renderSitePolicy(policy);
   rememberSite.disabled = false;
   if (rememberSite.checked) {
     setSiteStatus("This site can be checked automatically.", "success");
@@ -167,18 +184,24 @@ rememberSite.addEventListener("change", () => {
   void (async () => {
     const result = await changeRememberedSite(shouldRemember, {
       requestPermission: () => requestSitePermission(site.origin),
-      savePolicy: (remember) => setRememberedSite(site, remember),
+      savePolicy: (remember) =>
+        setRememberedSitePolicy(site, remember ? "ask" : null),
       removePermission: () => removeSitePermission(site.origin),
       markExplanationSeen: async () => {
         await preferenceStore.patch({ sitePermissionExplained: true });
       },
     });
     if (result === "remembered") {
+      renderSitePolicy("ask");
       setSiteStatus("This site can be checked automatically.", "success");
     } else if (result === "forgotten") {
+      renderSitePolicy(undefined);
       setSiteStatus("This site will not be checked automatically.", "idle");
     } else {
       rememberSite.checked = result === "forget-failed";
+      renderSitePolicy(
+        result === "forget-failed" ? currentSitePolicy : undefined,
+      );
       setSiteStatus(
         result === "permission-denied"
           ? "Site access was not granted."
@@ -195,6 +218,47 @@ rememberSite.addEventListener("change", () => {
     })
     .finally(() => {
       rememberSite.disabled = false;
+      sitePolicy.disabled = !rememberSite.checked;
+    });
+});
+
+sitePolicy.addEventListener("change", () => {
+  const site = currentSite;
+  const nextPolicy: SitePolicy =
+    sitePolicy.value === "always" ? "always" : "ask";
+  const previousPolicy = currentSitePolicy ?? "ask";
+  if (site === null || !rememberSite.checked) {
+    sitePolicy.value = previousPolicy;
+    return;
+  }
+  if (nextPolicy === previousPolicy) {
+    return;
+  }
+  rememberSite.disabled = true;
+  sitePolicy.disabled = true;
+  setSiteStatus("Saving automatic behavior…", "loading");
+  void setRememberedSitePolicy(site, nextPolicy)
+    .then((saved) => {
+      if (!saved) {
+        renderSitePolicy(previousPolicy);
+        setSiteStatus("Automatic behavior could not be saved. Try again.", "error");
+        return;
+      }
+      renderSitePolicy(nextPolicy);
+      setSiteStatus(
+        nextPolicy === "always"
+          ? "New pages on this site will romanize automatically."
+          : "New pages on this site will ask before changing text.",
+        "success",
+      );
+    })
+    .catch(() => {
+      renderSitePolicy(previousPolicy);
+      setSiteStatus("Automatic behavior could not be saved. Try again.", "error");
+    })
+    .finally(() => {
+      rememberSite.disabled = false;
+      sitePolicy.disabled = false;
     });
 });
 

@@ -8,8 +8,9 @@ and restore still-owned text exactly while incrementally tracking dynamic DOM
 changes. Phase 3 now has a versioned local preference boundary and explicit
 popup state presentation plus remembered-site permission and registration
 coordination. Automatic authorized-site inspection and page prompting are now
-implemented. Phase 3 policy selection, automated accessibility evidence, and
-final manual/distribution gates are the next incomplete slice.
+implemented. The remembered-site Ask first/automatic selector and automated
+accessibility evidence are also complete. Final manual/distribution gates are
+the next incomplete slice.
 
 Last verified working state: The packaged MV3 extension runs offline in
 Chromium 151, receives an action-granted `activeTab`, injects one isolated-world
@@ -90,6 +91,12 @@ source strings, and releases the processor after the final tracked session.
   Preference deactivation and permission removal now stop affected top frames,
   dismiss pending UI, restore still-owned text exactly, and release the shared
   processor when unused.
+- Added an On new pages selector for remembered sites with Ask first and
+  Romanize automatically choices. Policy changes reuse the existing concrete
+  permission and roll the UI back if persistence fails.
+- Added axe-core checks for the production popup and open Shadow prompt, plus
+  packaged keyboard-order, dark/forced-colors, reduced-motion, and 200% layout
+  assertions.
 
 # Architecture Decisions
 
@@ -150,12 +157,12 @@ diagnostic garbage collection at both renderer baselines:
 - exact first-node restoration after stop: passed.
 
 Latest Phase 1/2 large-page regression rerun measured 4.0 MiB retained renderer
-growth, 22.1 MiB aggregate Chromium PSS movement, and zero long tasks; the
+growth, 23.1 MiB aggregate Chromium PSS movement, and zero long tasks; the
 20 MiB page-side retained budget remains the applicable limit.
 
 Phase 2 dynamic fixture:
 
-- 1,000 added Japanese text nodes converged in 187 ms in the latest full-suite
+- 1,000 added Japanese text nodes converged in 216 ms in the latest full-suite
   run (207 ms at the Phase 2 completion gate);
 - zero observed page long tasks over 50 ms;
 - same-node, added-text, added-subtree, replacement, exclusion, rapid-source,
@@ -224,23 +231,21 @@ Phase 0 retained processor reference remains:
 
 # Current TODO
 
-- Expose the remembered origin's `ask` versus `always` policy in the popup and
-  verify both choices across new documents.
-- Add automated popup/prompt accessibility assertions and complete keyboard,
-  high-contrast, reduced-motion, 200% zoom, and screen-reader manual checks.
 - Complete restart/restricted/offline/network/distribution release evidence and
   run the real-browser optional-host grant/forget checklist; headless Chromium
   cannot accept its browser-owned permission confirmation prompt.
+- Complete a screen-reader smoke check and record the final release-candidate
+  package/privacy checklist.
 
 # Tests
 
 Final release gates:
 
-- `npm run test` — 23 Vitest files with 129 passing tests, including preference
+- `npm run test` — 24 Vitest files with 131 passing tests, including preference
   defaults/migrations/storage changes, remembered-site permission orchestration,
   registration/session reconciliation, detection/prompt coordination, popup
   state, and all Phase 1/2 regressions.
-- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 129 unit
+- `npm run verify` — dictionary provenance, TypeScript, ESLint, the 131 unit
   tests, both production bundles, and the distribution
   inventory all passed.
 - `npm run test:integration` — all seven packaged Chromium tests passed: the
@@ -269,6 +274,6 @@ Test: `npm run verify && npm run test:integration`
 
 Phase 2 is complete. Phase 3 now includes preferences, popup state,
 permission-first remembered-site registrations, authorized detection, and the
-marked Shadow-root prompt. Do not add periodic rescans, broad attribute
-observation, or site selectors. Continue with explicit ask/always controls,
-accessibility evidence, and Phase 3 release gates.
+marked Shadow-root prompt, explicit ask/always controls, and automated
+accessibility evidence. Do not add periodic rescans, broad attribute
+observation, or site selectors. Continue with final Phase 3 release gates.

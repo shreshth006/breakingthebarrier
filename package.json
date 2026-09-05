@@ -26,10 +26,12 @@
     "wanakana": "5.3.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.62.1",
     "@types/chrome": "0.2.7",
     "@types/node": "26.2.0",
+    "axe-core": "4.13.0",
     "eslint": "10.9.0",
     "globals": "17.11.0",
     "jsdom": "29.1.1",

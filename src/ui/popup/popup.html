@@ -54,6 +54,21 @@
           Allows Breaking the Barrier to check pages on this site
           automatically. Text stays on this device.
         </p>
+        <div id="site-policy-control" class="site-policy-control" hidden>
+          <label for="site-policy">On new pages</label>
+          <select
+            id="site-policy"
+            aria-describedby="site-policy-explanation site-status"
+            disabled
+          >
+            <option value="ask">Ask first</option>
+            <option value="always">Romanize automatically</option>
+          </select>
+          <p id="site-policy-explanation" class="site-explanation">
+            Ask first checks for Japanese without loading the reading engine or
+            changing the page.
+          </p>
+        </div>
         <p
           id="site-status"
           class="site-status"

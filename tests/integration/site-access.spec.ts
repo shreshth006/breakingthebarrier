@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium, expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 const projectRoot = resolve(import.meta.dirname, "../..");
 const extensionPath = resolve(projectRoot, "dist");
@@ -78,6 +79,52 @@ test("remembered-site UI refuses missing permission and reconciles stale policy"
 
     await expect(remember).not.toBeChecked();
     await expect(remember).toBeEnabled();
+    const policy = popup.locator("#site-policy");
+    await expect(policy).toBeHidden();
+    await expect(policy.locator("option")).toHaveText([
+      "Ask first",
+      "Romanize automatically",
+    ]);
+    const accessibility = await new AxeBuilder({ page: popup })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await popup.evaluate(() => {
+      const control = document.querySelector("#site-policy-control");
+      const select = document.querySelector("#site-policy");
+      if (!(control instanceof HTMLElement) || !(select instanceof HTMLSelectElement)) {
+        throw new Error("Site policy controls are unavailable");
+      }
+      control.hidden = false;
+      select.disabled = false;
+    });
+    const rememberedAccessibility = await new AxeBuilder({ page: popup })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(rememberedAccessibility.violations).toEqual([]);
+    await popup.evaluate(() => {
+      const control = document.querySelector("#site-policy-control");
+      if (control instanceof HTMLElement) control.hidden = true;
+    });
+    await popup.locator("body").press("Tab");
+    await expect(popup.locator("#page-action")).toBeFocused();
+    await popup.keyboard.press("Tab");
+    await expect(remember).toBeFocused();
+    await popup.emulateMedia({
+      colorScheme: "dark",
+      forcedColors: "active",
+      reducedMotion: "reduce",
+    });
+    await popup.setViewportSize({ width: 640, height: 900 });
+    await popup.evaluate(() => {
+      document.body.style.zoom = "2";
+    });
+    const actionBox = await popup.locator("#page-action").boundingBox();
+    const rememberBox = await remember.boundingBox();
+    expect(actionBox).not.toBeNull();
+    expect(rememberBox).not.toBeNull();
+    expect((actionBox?.x ?? 0) + (actionBox?.width ?? 0)).toBeLessThanOrEqual(640);
+    expect((rememberBox?.x ?? 0) + (rememberBox?.width ?? 0)).toBeLessThanOrEqual(640);
     const refused = await popup.evaluate(async (expectedOrigin) => {
       const response: unknown = await chrome.runtime.sendMessage({
         protocolVersion: 1,

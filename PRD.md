@@ -2,7 +2,7 @@
 
 - **Document status:** Planning baseline 1.1
 - **Last updated:** 2026-09-05
-- **Implementation status:** Phases 0, 1, and 2 complete; Phase 3 authorized-site prompt flow implemented, release controls in progress
+- **Implementation status:** Phases 0, 1, and 2 complete; Phase 3 controls and authorized-site flow implemented, final release gates in progress
 
 ## 1. Product overview
 

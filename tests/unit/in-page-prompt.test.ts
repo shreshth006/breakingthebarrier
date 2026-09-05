@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import axe from "axe-core";
 import { CONTENT_IGNORE_ATTRIBUTE, CONTENT_UI_ATTRIBUTE } from "../../src/shared/config";
 import { showJapaneseDetectionPrompt } from "../../src/ui/in-page/prompt";
 
@@ -28,6 +29,20 @@ describe("in-page Japanese detection prompt", () => {
       "Japanese detected",
     );
     expect(document.activeElement).toBe(pageButton);
+  });
+
+  it("passes automated accessibility rules for its open Shadow tree", async () => {
+    showJapaneseDetectionPrompt(document, {
+      romanize: vi.fn(() => Promise.resolve(true)),
+      dismiss: vi.fn(),
+    });
+
+    const results = await axe.run(promptHost(), {
+      rules: {
+        "color-contrast": { enabled: false },
+      },
+    });
+    expect(results.violations).toEqual([]);
   });
 
   it("starts romanization and removes itself after success", async () => {

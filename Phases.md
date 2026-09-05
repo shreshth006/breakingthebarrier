@@ -2,7 +2,7 @@
 
 - **Planning bootstrap:** Complete
 - **Current implementation phase:** Phase 3 — in progress
-- **Next phase:** Phase 3 policy controls, accessibility, and release gates
+- **Next phase:** Phase 3 final release gates
 - **Last updated:** 2026-09-05
 
 ## 1. Roadmap principles
@@ -348,9 +348,13 @@ text exactly. Grant, denial, rollback, forget, idempotence, repair, prompt,
 detection, and revocation paths have deterministic coverage, while packaged
 Chromium covers the available UI, missing-permission boundary, and live
 deactivation restore. Headless Chromium cannot accept its own optional-host
-confirmation prompt, so a real grant remains a manual-browser gate. Phase 3
-policy selection UI, automated accessibility evidence, and final
-manual/distribution gates remain, so Phase 3 is not yet a release candidate.
+confirmation prompt, so a real grant remains a manual-browser gate. The popup
+now exposes Ask first versus Romanize automatically only after access is saved;
+changing that policy does not request permission again. Axe checks cover the
+packaged popup and open Shadow prompt, while packaged interaction checks cover
+keyboard order, forced colors, dark mode, reduced motion, and 200% layout.
+Final manual/distribution gates remain, so Phase 3 is not yet a release
+candidate.
 
 ### Objective
 
