@@ -1,4 +1,4 @@
-import { hasJapaneseLanguageEvidence } from "../detector/language-evidence";
+import { hasSupportedLanguageEvidence } from "../detector/language-evidence";
 import {
   CONTENT_IGNORE_ATTRIBUTE,
   MAX_TRANSLITERATION_SOURCE_UTF16,
@@ -81,7 +81,7 @@ export function isEligibleTextNode(node: Text): boolean {
     source.trim().length > 0 &&
     source.length <= MAX_TRANSLITERATION_SOURCE_UTF16 &&
     !hasExcludedAncestor(parent) &&
-    hasJapaneseLanguageEvidence(source, parent) &&
+    hasSupportedLanguageEvidence(source, parent) &&
     isStyleVisible(parent)
   );
 }

@@ -29,3 +29,14 @@ export function hasJapaneseLanguageEvidence(
   const language = inheritedLanguage(element);
   return language === "ja" || language?.startsWith("ja-") === true;
 }
+
+export function hasSupportedLanguageEvidence(
+  source: string,
+  element: Element | null,
+): boolean {
+  const scripts = analyzeJapaneseScripts(source);
+  if (scripts.hasNonLatinScript) {
+    return true;
+  }
+  return hasJapaneseLanguageEvidence(source, element);
+}

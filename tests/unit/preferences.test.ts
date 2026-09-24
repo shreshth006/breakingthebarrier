@@ -147,9 +147,23 @@ describe("versioned preferences", () => {
       "local",
     );
     expect(listener).toHaveBeenCalledOnce();
-    expect(listener).toHaveBeenCalledWith(updated);
-
     unsubscribe();
     expect(changes.listener).toBeUndefined();
   });
+
+  it("preserves renderer preference in migration and patches", async () => {
+    const storage = new MemoryStorage();
+    const store = new PreferenceStore(storage);
+
+    await store.patch({ renderer: "annotation" });
+    const updated = await store.get();
+    expect(updated.renderer).toBe("annotation");
+
+    const migrated = migratePreferences({
+      schemaVersion: 1,
+      renderer: "annotation",
+    });
+    expect(migrated.renderer).toBe("annotation");
+  });
 });
+

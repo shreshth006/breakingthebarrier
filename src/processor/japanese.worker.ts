@@ -1,3 +1,5 @@
+import { AnyAsciiAdapter } from "../engines/universal/any-ascii-adapter";
+import type { TransliterationRequest, TransliterationResult } from "../engines/contracts";
 import {
   ASCII_HEPBURN_POLICY_VERSION,
   WANAKANA_VERSION,
@@ -288,10 +290,49 @@ workerScope.addEventListener("message", (event: MessageEvent<unknown>) => {
     return;
   }
 
+const anyAsciiAdapter = new AnyAsciiAdapter();
+
+async function processBatchItems(
+  items: readonly TransliterationRequest[],
+): Promise<readonly TransliterationResult[]> {
+  const jaItems = items.filter((item) => item.language === "ja");
+  const universalItems = items.filter((item) => item.language !== "ja");
+
+  let jaResults: readonly TransliterationResult[] = [];
+  if (jaItems.length > 0) {
+    try {
+      const { adapter } = await getJapaneseEngine();
+      jaResults = await adapter.transliterate(jaItems);
+    } catch {
+      jaResults = await anyAsciiAdapter.transliterate(jaItems);
+    }
+  }
+
+  const universalResults =
+    universalItems.length > 0
+      ? await anyAsciiAdapter.transliterate(universalItems)
+      : [];
+
+  const resultMap = new Map<string, TransliterationResult>();
+  for (const res of jaResults) {
+    resultMap.set(res.itemId, res);
+  }
+  for (const res of universalResults) {
+    resultMap.set(res.itemId, res);
+  }
+
+  return items.map((item) => {
+    const res = resultMap.get(item.itemId);
+    if (!res) {
+      throw new Error(`Missing result for item ${item.itemId}`);
+    }
+    return res;
+  });
+}
+
   if (isJapaneseWorkerBatchRequest(event.data)) {
     const request = event.data;
-    void getJapaneseEngine()
-      .then(({ adapter }) => adapter.transliterate(request.items))
+    void processBatchItems(request.items)
       .then((results) => {
         workerScope.postMessage(
           createJapaneseWorkerBatchResponse(request.requestId, results),

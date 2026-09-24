@@ -19,21 +19,21 @@ describe("popup current-page view", () => {
   it("shows a clear original action and no-text result", () => {
     expect(popupViewForSummary(summary())).toMatchObject({
       badge: "Original",
-      actionLabel: "Romanize this page",
+      actionLabel: "Transliterate this page",
       actionDisabled: false,
       status: "Current page is original",
     });
     expect(
       popupViewForSummary(summary({ reason: "no-supported-text" })).status,
-    ).toBe("No supported Japanese text found.");
+    ).toBe("No supported foreign text found.");
     expect(
       popupViewForSummary(
         summary({ reason: "japanese-detected", eligibleNodes: 2 }),
       ),
     ).toMatchObject({
       badge: "Original",
-      actionLabel: "Romanize this page",
-      status: "Japanese detected. Romanize this page?",
+      actionLabel: "Transliterate this page",
+      status: "Foreign text detected (Japanese, Punjabi, Hindi, Urdu & more). Transliterate this page?",
     });
   });
 
@@ -55,7 +55,7 @@ describe("popup current-page view", () => {
     ).toMatchObject({
       badge: "Partial",
       status:
-        "Showing romaji. Some text could not be read and was left original.",
+        "Showing transliteration. Some text could not be read and was left original.",
     });
   });
 
@@ -74,7 +74,7 @@ describe("popup current-page view", () => {
       ),
     ).toMatchObject({
       badge: "Unavailable",
-      actionLabel: "Romanize this page",
+      actionLabel: "Transliterate this page",
       actionDisabled: true,
     });
   });

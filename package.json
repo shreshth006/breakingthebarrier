@@ -22,6 +22,7 @@
     "verify": "npm run assets:verify && npm run typecheck && npm run lint && npm run test && npm run build && npm run verify:dist"
   },
   "dependencies": {
+    "any-ascii": "^0.3.2",
     "lindera-wasm-bundler": "5.3.0",
     "wanakana": "5.3.1"
   },
@@ -30,6 +31,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.62.1",
     "@types/chrome": "0.2.7",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "26.2.0",
     "axe-core": "4.13.0",
     "eslint": "10.9.0",

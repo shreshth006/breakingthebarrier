@@ -14,7 +14,7 @@ export function popupViewForSummary(
   if (summary.reason === "restricted-page") {
     return {
       badge: "Unavailable",
-      actionLabel: "Romanize this page",
+      actionLabel: "Transliterate this page",
       actionDisabled: true,
       status: "This browser page cannot be changed.",
       statusState: "error",
@@ -25,7 +25,7 @@ export function popupViewForSummary(
       badge: "Starting",
       actionLabel: "Checking this page…",
       actionDisabled: true,
-      status: "Checking this page for Japanese text…",
+      status: "Checking this page for foreign text…",
       statusState: "loading",
     };
   }
@@ -34,7 +34,7 @@ export function popupViewForSummary(
       badge: "Starting",
       actionLabel: "Preparing readings…",
       actionDisabled: true,
-      status: "Preparing Japanese readings…",
+      status: "Preparing transliteration readings…",
       statusState: "loading",
     };
   }
@@ -54,8 +54,8 @@ export function popupViewForSummary(
       actionLabel: "Show original",
       actionDisabled: false,
       status: partial
-        ? "Showing romaji. Some text could not be read and was left original."
-        : `Showing romaji · ${String(summary.processedNodes)} text nodes`,
+        ? "Showing transliteration. Some text could not be read and was left original."
+        : `Showing transliteration · ${String(summary.processedNodes)} text nodes`,
       statusState: "success",
     };
   }
@@ -71,19 +71,19 @@ export function popupViewForSummary(
   if (summary.reason === "japanese-detected") {
     return {
       badge: "Original",
-      actionLabel: "Romanize this page",
+      actionLabel: "Transliterate this page",
       actionDisabled: false,
-      status: "Japanese detected. Romanize this page?",
+      status: "Foreign text detected (Japanese, Punjabi, Hindi, Urdu & more). Transliterate this page?",
       statusState: "idle",
     };
   }
   return {
     badge: "Original",
-    actionLabel: "Romanize this page",
+    actionLabel: "Transliterate this page",
     actionDisabled: false,
     status:
       summary.reason === "no-supported-text"
-        ? "No supported Japanese text found."
+        ? "No supported foreign text found."
         : "Current page is original",
     statusState: "idle",
   };

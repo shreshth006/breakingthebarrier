@@ -16,7 +16,7 @@ export interface PreferencesSchema {
       readonly romanizationPolicy: "ascii-hepburn-v1";
     };
   };
-  readonly renderer: "replace";
+  readonly renderer: "replace" | "annotation";
   readonly sites: Readonly<Record<string, SitePreference>>;
   readonly onboarding: {
     readonly sitePermissionExplained: boolean;
@@ -27,6 +27,7 @@ export interface PreferencesPatch {
   readonly globalEnabled?: boolean;
   readonly japaneseEnabled?: boolean;
   readonly sitePermissionExplained?: boolean;
+  readonly renderer?: "replace" | "annotation";
   readonly site?: {
     readonly origin: string;
     readonly policy: SitePolicy | null;

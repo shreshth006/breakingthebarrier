@@ -58,8 +58,9 @@ export function readTransliterationRequests(
       itemIds.has(item.itemId) ||
       !isBoundedString(item.source, MAX_TRANSLITERATION_SOURCE_UTF16) ||
       item.source.length === 0 ||
-      item.language !== "ja" ||
-      item.romanizationPolicy !== "ascii-hepburn-v1"
+      (item.language !== "ja" && item.language !== "universal") ||
+      (item.romanizationPolicy !== "ascii-hepburn-v1" &&
+        item.romanizationPolicy !== "universal-ascii-v1")
     ) {
       return null;
     }
@@ -72,8 +73,8 @@ export function readTransliterationRequests(
     requests.push({
       itemId: item.itemId,
       source: item.source,
-      language: "ja",
-      romanizationPolicy: "ascii-hepburn-v1",
+      language: item.language,
+      romanizationPolicy: item.romanizationPolicy,
     });
   }
 
@@ -162,8 +163,10 @@ function readResult(value: unknown): TransliterationResult | null {
     new Set(warnings).size !== warnings.length ||
     !isNonEmptyBoundedString(value.versions.engine, 64) ||
     !isNonEmptyBoundedString(value.versions.dictionary, 64) ||
-    value.versions.romanizationPolicy !== "ascii-hepburn-v1" ||
-    value.versions.spacingPolicy !== "japanese-spacing-v1"
+    (value.versions.romanizationPolicy !== "ascii-hepburn-v1" &&
+      value.versions.romanizationPolicy !== "universal-ascii-v1") ||
+    (value.versions.spacingPolicy !== "japanese-spacing-v1" &&
+      value.versions.spacingPolicy !== "passthrough-v1")
   ) {
     return null;
   }

@@ -29,6 +29,8 @@ const siteStatusElement = document.querySelector("#site-status");
 const sitePolicyControlElement = document.querySelector("#site-policy-control");
 const sitePolicyElement = document.querySelector("#site-policy");
 
+const displayModeElement = document.querySelector("#display-mode");
+
 if (
   !(buttonElement instanceof HTMLButtonElement) ||
   !(statusElement instanceof HTMLElement) ||
@@ -38,7 +40,8 @@ if (
   !(siteHostElement instanceof HTMLElement) ||
   !(siteStatusElement instanceof HTMLElement) ||
   !(sitePolicyControlElement instanceof HTMLElement) ||
-  !(sitePolicyElement instanceof HTMLSelectElement)
+  !(sitePolicyElement instanceof HTMLSelectElement) ||
+  !(displayModeElement instanceof HTMLSelectElement)
 ) {
   throw new Error("Required popup controls are missing");
 }
@@ -260,6 +263,21 @@ sitePolicy.addEventListener("change", () => {
       rememberSite.disabled = false;
       sitePolicy.disabled = false;
     });
+});
+
+const displayMode = displayModeElement;
+
+preferenceStore.get().then((prefs) => {
+  displayMode.value = prefs.renderer === "annotation" ? "annotation" : "replace";
+}).catch(() => undefined);
+
+displayMode.addEventListener("change", () => {
+  const selectedMode = displayMode.value === "annotation" ? "annotation" : "replace";
+  void preferenceStore.patch({ renderer: selectedMode }).then(() => {
+    if (currentState === "active") {
+      void sendCommand("stop").then(() => sendCommand("start"));
+    }
+  });
 });
 
 void sendCommand("status").catch(() => {

@@ -10,6 +10,7 @@ const origin = "https://example.com";
 function popupDocument(): void {
   document.body.innerHTML = `
     <button id="page-action" type="button"></button>
+    <select id="display-mode"><option value="annotation">Dual</option><option value="replace">Replace</option></select>
     <p id="status"></p>
     <span id="page-state"></span>
     <section id="site-memory" hidden>

@@ -71,16 +71,16 @@ export function showJapaneseDetectionPrompt(
       button[data-primary] { color: ButtonText; background: ButtonFace; } }
   `;
   const region = element(document, "section");
-  region.setAttribute("aria-label", "Japanese detected");
-  const title = element(document, "h2", "Japanese detected");
+  region.setAttribute("aria-label", "Foreign text detected");
+  const title = element(document, "h2", "Foreign text detected");
   const description = element(
     document,
     "p",
-    "Romanize this page while keeping the language Japanese?",
+    "Transliterate this page (Japanese, Punjabi, Hindi, Urdu & 100+ languages)?",
   );
   const controls = element(document, "div");
   controls.className = "actions";
-  const romanize = element(document, "button", "Romanize");
+  const romanize = element(document, "button", "Transliterate");
   romanize.type = "button";
   romanize.dataset.primary = "";
   const notNow = element(document, "button", "Not now");
@@ -88,7 +88,7 @@ export function showJapaneseDetectionPrompt(
   const close = element(document, "button", "×");
   close.type = "button";
   close.dataset.close = "";
-  close.setAttribute("aria-label", "Close Japanese detection prompt");
+  close.setAttribute("aria-label", "Close detection prompt");
   const status = element(document, "p");
   status.setAttribute("role", "status");
   status.setAttribute("aria-live", "polite");
@@ -100,7 +100,7 @@ export function showJapaneseDetectionPrompt(
   romanize.addEventListener("click", () => {
     romanize.disabled = true;
     notNow.disabled = true;
-    status.textContent = "Preparing Japanese readings…";
+    status.textContent = "Preparing transliteration readings…";
     void actions
       .romanize()
       .then((started) => {

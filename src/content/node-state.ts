@@ -10,10 +10,11 @@ export interface NodeState {
   rendered: string | null;
   revision: number;
   sessionEpoch: number;
-  rendererId: "replace-v1";
-  optionsKey: "ja:ascii-hepburn-v1";
+  rendererId: "replace-v1" | "annotation-v1";
+  optionsKey: string;
   status: NodeProcessingStatus;
   boundaryPrefix: string;
+  container?: HTMLElement;
 }
 
 export class NodeStateRegistry {
@@ -97,7 +98,22 @@ export class NodeStateRegistry {
         continue;
       }
       state.status = "restoring";
-      if (state.rendered !== null && node.data === state.rendered) {
+      if (state.container !== undefined && state.container.parentNode !== null) {
+        state.container.parentNode.replaceChild(node, state.container);
+        node.data = state.source;
+        restored += 1;
+      } else if (state.rendered !== null && node.data === state.rendered) {
+        const rubyParent = node.parentElement;
+        if (
+          rubyParent?.tagName.toLowerCase() === "ruby" &&
+          rubyParent.classList.contains("btb-ruby-token")
+        ) {
+          const grandParent = rubyParent.parentNode;
+          if (grandParent !== null) {
+            grandParent.insertBefore(node, rubyParent);
+            grandParent.removeChild(rubyParent);
+          }
+        }
         node.data = state.source;
         restored += 1;
       }

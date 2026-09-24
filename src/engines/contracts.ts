@@ -1,4 +1,4 @@
-export type LanguageCode = "ja";
+export type LanguageCode = "ja" | "universal";
 
 export type EngineWarningCode = "unknown-reading" | "partial-output";
 

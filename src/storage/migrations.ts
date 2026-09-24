@@ -54,7 +54,10 @@ function sanitizeV1(value: Record<string, unknown>): PreferencesSchema {
         romanizationPolicy: "ascii-hepburn-v1",
       },
     },
-    renderer: "replace",
+    renderer:
+      value.renderer === "annotation" || value.renderer === "replace"
+        ? value.renderer
+        : defaults.renderer,
     sites: readSites(value.sites),
     onboarding: {
       sitePermissionExplained:

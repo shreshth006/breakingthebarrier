@@ -1,0 +1,31 @@
+/* Breaking the Barrier — Ruby Annotation Mode Styles */
+
+span.btb-ruby-container {
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+ruby.btb-ruby-token {
+  display: inline-ruby !important;
+  ruby-position: over !important;
+  ruby-align: center !important;
+  line-height: normal !important;
+}
+
+rt.btb-ruby-rt {
+  display: ruby-text !important;
+  font-size: 0.68em !important;
+  line-height: 1.1 !important;
+  font-weight: 700 !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  color: #e2e8f0 !important;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.95), 0 1px 3px rgba(0, 0, 0, 0.8) !important;
+  letter-spacing: 0.02em !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+
+

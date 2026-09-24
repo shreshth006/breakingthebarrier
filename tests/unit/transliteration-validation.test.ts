@@ -60,6 +60,34 @@ describe("transliteration boundary validation", () => {
     expect(parsed?.[0]).not.toBe(input[0]);
   });
 
+  it("accepts universal transliteration requests and results", () => {
+    const uniReq: TransliterationRequest = {
+      itemId: "punjabi-1",
+      source: "ਪੰਜਾਬੀ",
+      language: "universal",
+      romanizationPolicy: "universal-ascii-v1",
+    };
+    const uniRes: TransliterationResult = {
+      itemId: "punjabi-1",
+      source: "ਪੰਜਾਬੀ",
+      rendered: "pjabi",
+      segments: [
+        { start: 0, end: 6, source: "ਪੰਜਾਬੀ", reading: "pjabi", romanized: "pjabi" },
+      ],
+      warnings: [],
+      versions: {
+        engine: "any-ascii-0.3.2",
+        dictionary: "any-ascii-cldr",
+        romanizationPolicy: "universal-ascii-v1",
+        spacingPolicy: "passthrough-v1",
+      },
+    };
+
+    expect(readTransliterationRequests([uniReq])).toEqual([uniReq]);
+    expect(readTransliterationResults([uniRes])).toEqual([uniRes]);
+    expect(resultsMatchRequests([uniReq], [uniRes])).toBe(true);
+  });
+
   it("rejects empty, oversized, and duplicate request batches", () => {
     expect(readTransliterationRequests([])).toBeNull();
     expect(

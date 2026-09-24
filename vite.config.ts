@@ -77,6 +77,10 @@ export default defineConfig({
           projectRoot,
           "src/background/service-worker.ts",
         ),
+        "content-script": resolve(
+          projectRoot,
+          "src/content/bootstrap.ts",
+        ),
       },
       output: {
         entryFileNames: "assets/[name].js",

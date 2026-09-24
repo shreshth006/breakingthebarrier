@@ -26,7 +26,7 @@ describe("in-page Japanese detection prompt", () => {
     expect(host.hasAttribute(CONTENT_IGNORE_ATTRIBUTE)).toBe(true);
     expect(host.shadowRoot?.querySelector("section")?.getAttribute("role")).toBeNull();
     expect(host.shadowRoot?.querySelector("section")?.getAttribute("aria-label")).toBe(
-      "Japanese detected",
+      "Foreign text detected",
     );
     expect(document.activeElement).toBe(pageButton);
   });

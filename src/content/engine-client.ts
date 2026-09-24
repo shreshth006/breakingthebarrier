@@ -1,3 +1,4 @@
+import { analyzeJapaneseScripts } from "../detector/scripts";
 import type { TransliterationResult } from "../engines/contracts";
 import {
   CONTENT_FRAME_CACHE_CAPACITY,
@@ -123,8 +124,12 @@ export class LocalFrameEngineClient implements FrameEngineClient {
     const items = sources.map((source, index) => ({
       itemId: `${requestId}:${String(index)}`,
       source,
-      language: "ja" as const,
-      romanizationPolicy: "ascii-hepburn-v1",
+      language: analyzeJapaneseScripts(source).hasJapaneseScript
+        ? ("ja" as const)
+        : ("universal" as const),
+      romanizationPolicy: analyzeJapaneseScripts(source).hasJapaneseScript
+        ? "ascii-hepburn-v1"
+        : "universal-ascii-v1",
     }));
     try {
       const rawResponse: unknown = await chrome.runtime.sendMessage(

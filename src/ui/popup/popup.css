@@ -137,6 +137,30 @@ button[aria-busy="true"]:disabled {
   cursor: wait;
 }
 
+.display-mode-control {
+  display: grid;
+  gap: 5px;
+}
+
+.display-mode-control label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.display-mode-control select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--btb-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--btb-text);
+  background: var(--btb-surface);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .status {
   min-height: 18px;
   margin: 0;

@@ -11,11 +11,13 @@ describe("Japanese script and language evidence", () => {
       hasKana: true,
       hasHan: true,
       hasJapaneseScript: true,
+      hasNonLatinScript: true,
     });
     expect(analyzeJapaneseScripts("東京")).toEqual({
       hasKana: false,
       hasHan: true,
       hasJapaneseScript: true,
+      hasNonLatinScript: true,
     });
     expect(analyzeJapaneseScripts("hello 123 🎵").hasJapaneseScript).toBe(
       false,

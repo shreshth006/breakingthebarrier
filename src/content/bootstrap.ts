@@ -84,6 +84,10 @@ if (contentGlobal.__BTB_CONTENT_LISTENER_V1__ !== true) {
         return false;
       }
       contentGlobal.__BTB_REMEMBERED_PAGE_V1__?.stop();
+      const status = controller.status();
+      if (status.state === "active" || status.state === "degraded") {
+        controller.stop();
+      }
       void controller.start().then((summary) => {
         sendResponse(
           createContentCommandResponse(request.value.requestId, summary),
@@ -94,13 +98,31 @@ if (contentGlobal.__BTB_CONTENT_LISTENER_V1__ !== true) {
   );
 }
 
+if (typeof chrome !== "undefined" && "storage" in chrome) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && changes.preferences) {
+      const summary = controller.status();
+      if (summary.state === "active" || summary.state === "degraded") {
+        controller.stop();
+        void controller.start();
+      }
+    }
+  });
+}
+
 if (contentGlobal.__BTB_REMEMBERED_BOOTSTRAP_V1__ !== true) {
   contentGlobal.__BTB_REMEMBERED_BOOTSTRAP_V1__ = true;
   contentGlobal.__BTB_REMEMBERED_PAGE_V1__ = new RememberedPageCoordinator({
     send: sendRememberedCommand,
     createDetection: () => new JapaneseDetectionController(document),
-    showPrompt: (actions) =>
-      showJapaneseDetectionPrompt(document, actions),
+    showPrompt: (actions) => {
+      const summary = controller.status();
+      if (summary.state !== "original") {
+        return { dismiss: () => undefined };
+      }
+      return showJapaneseDetectionPrompt(document, actions);
+    },
   });
   void contentGlobal.__BTB_REMEMBERED_PAGE_V1__.start().catch(() => undefined);
 }
+

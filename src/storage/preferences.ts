@@ -63,7 +63,7 @@ export function applyPreferencesPatch(
         romanizationPolicy: "ascii-hepburn-v1",
       },
     },
-    renderer: "replace",
+    renderer: patch.renderer ?? current.renderer,
     sites: Object.fromEntries(siteEntries),
     onboarding: {
       sitePermissionExplained:
@@ -137,7 +137,11 @@ export class PreferenceStore {
     const stored = values[PREFERENCES_STORAGE_KEY];
     const preferences = migratePreferences(stored);
     if (!isCanonical(stored, preferences)) {
-      await this.#storage.set({ [PREFERENCES_STORAGE_KEY]: preferences });
+      try {
+        await this.#storage.set({ [PREFERENCES_STORAGE_KEY]: preferences });
+      } catch {
+        // Ignore storage write error during read migration
+      }
     }
     return preferences;
   }
